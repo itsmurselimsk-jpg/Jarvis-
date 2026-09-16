@@ -117,15 +117,16 @@ fun JarvisApp(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (activeSubScreen != null) {
+            val currentSubScreen = activeSubScreen
+            if (currentSubScreen != null) {
                 // SubScreen Container with Header
                 Column(modifier = Modifier.fillMaxSize()) {
                     SubScreenHeader(
-                        title = activeSubScreen?.name ?: "SUBMODULE",
+                        title = currentSubScreen.name,
                         onBack = { viewModel.closeSubScreen() }
                     )
 
-                    when (activeSubScreen) {
+                    when (currentSubScreen) {
                         SubScreen.TOOLS -> ToolsScreen(
                             tools = viewModel.brain.registry.getAllTools(),
                             toolContext = viewModel.toolContext
@@ -169,7 +170,6 @@ fun JarvisApp(
                                 viewModel.speakText(text, rate, pitch)
                             }
                         )
-                        null -> {}
                     }
                 }
             } else {

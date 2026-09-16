@@ -8,6 +8,7 @@ import java.util.Locale
  */
 enum class VoiceProfileType(
     val profileName: String,
+    val tagline: String,
     val description: String,
     val defaultPitch: Float,
     val defaultSpeed: Float,
@@ -15,6 +16,7 @@ enum class VoiceProfileType(
 ) {
     CALM(
         profileName = "JARVIS Calm",
+        tagline = "Composed & Tranquil",
         description = "Steady, composed, relaxed acoustic cadence with low resonance",
         defaultPitch = 0.85f,
         defaultSpeed = 0.95f,
@@ -22,6 +24,7 @@ enum class VoiceProfileType(
     ),
     DEEP(
         profileName = "JARVIS Deep",
+        tagline = "Authoritative Baritone",
         description = "Authoritative baritone with deep resonance and measured pace",
         defaultPitch = 0.70f,
         defaultSpeed = 0.90f,
@@ -29,6 +32,7 @@ enum class VoiceProfileType(
     ),
     NATURAL(
         profileName = "JARVIS Natural",
+        tagline = "Balanced & Conversational",
         description = "Balanced pitch and standard conversational cadence",
         defaultPitch = 1.00f,
         defaultSpeed = 1.00f,
@@ -36,6 +40,7 @@ enum class VoiceProfileType(
     ),
     WARM(
         profileName = "JARVIS Warm",
+        tagline = "Gentle & Cordial",
         description = "Gentle, cordial tone with smooth acoustic modulation",
         defaultPitch = 0.95f,
         defaultSpeed = 0.92f,
@@ -43,6 +48,7 @@ enum class VoiceProfileType(
     ),
     CRISP(
         profileName = "JARVIS Crisp",
+        tagline = "Brisk & High Clarity",
         description = "High clarity, crisp articulation, and brisk operational tempo",
         defaultPitch = 1.15f,
         defaultSpeed = 1.10f,
@@ -62,30 +68,35 @@ enum class VoiceProfileType(
 enum class SupportedLanguage(
     val code: String,
     val displayName: String,
+    val nativeName: String,
     val locale: Locale,
     val greetingPhrase: String
 ) {
     AUTO(
         code = "auto",
-        displayName = "Auto Detect (English / বাংলা / हिंदी)",
+        displayName = "Auto Detect",
+        nativeName = "English / বাংলা / हिंदी",
         locale = Locale.US,
         greetingPhrase = "Standing by for your directive."
     ),
     ENGLISH(
         code = "en",
         displayName = "English",
+        nativeName = "English",
         locale = Locale.US,
         greetingPhrase = "Yes Sir, I am listening."
     ),
     BENGALI(
         code = "bn",
-        displayName = "Bengali (বাংলা)",
+        displayName = "Bengali",
+        nativeName = "বাংলা",
         locale = Locale("bn", "BD"),
         greetingPhrase = "হ্যাঁ স্যার, আমি শুনছি। কীভাবে সাহায্য করতে পারি?"
     ),
     HINDI(
         code = "hi",
-        displayName = "Hindi (हिंदी)",
+        displayName = "Hindi",
+        nativeName = "हिंदी",
         locale = Locale("hi", "IN"),
         greetingPhrase = "हाँ सर, मैं सुन रहा हूँ। मैं आपकी क्या मदद कर सकता हूँ?"
     );
