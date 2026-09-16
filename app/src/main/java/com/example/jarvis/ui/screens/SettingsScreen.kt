@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
@@ -72,7 +74,9 @@ fun SettingsScreen(
     onNavigateMemory: () -> Unit,
     onNavigateBridge: () -> Unit,
     onNavigateActivity: () -> Unit,
-    onNavigateVision: () -> Unit
+    onNavigateVision: () -> Unit,
+    onNavigateVoiceSetup: () -> Unit = {},
+    onNavigateVoiceProfiles: () -> Unit = {}
 ) {
     var providerType by remember { mutableStateOf(currentSettings.providerType) }
     var customApiKey by remember { mutableStateOf(currentSettings.customApiKey) }
@@ -312,6 +316,8 @@ fun SettingsScreen(
                         color = JarvisTextDim
                     )
 
+                    SubmoduleNavigationRow("Acoustic Wake Engine ('Hey JARVIS')", Icons.Default.Mic, onNavigateVoiceSetup)
+                    SubmoduleNavigationRow("Vocal Profiles & Modulation", Icons.Default.RecordVoiceOver, onNavigateVoiceProfiles)
                     SubmoduleNavigationRow("Privacy & Local Enclave", Icons.Default.Security, onNavigatePrivacy)
                     SubmoduleNavigationRow("Neural Memory Index", Icons.Default.Psychology, onNavigateMemory)
                     SubmoduleNavigationRow("Optical Vision HUD", Icons.Default.Visibility, onNavigateVision)

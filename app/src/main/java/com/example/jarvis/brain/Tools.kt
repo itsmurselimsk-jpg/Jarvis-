@@ -149,7 +149,27 @@ class VolumeTool : Tool {
         val lower = input.lowercase()
         val num = Regex("""\d+""").find(lower)?.value?.toIntOrNull()
 
-        if ((lower.contains("set") || lower.contains("adjust") || lower.contains("change")) && num != null) {
+        if (lower.contains("up") || lower.contains("increase") || lower.contains("louder") ||
+            lower.contains("barao") || lower.contains("বাড়াও") || lower.contains("badhao") || lower.contains("बढ़ाओ")) {
+            val info = context.bridge.getVolumeInfo()
+            val musicCur = info["musicCurrent"] ?: 7
+            val musicMax = info["musicMax"] ?: 15
+            val newStep = (musicCur + 2).coerceAtMost(musicMax)
+            val newPct = if (musicMax > 0) ((newStep.toFloat() / musicMax) * 100).toInt() else 80
+            val success = context.bridge.setMusicVolume(newPct)
+            context.repository.logActivity("Volume Increased", "$newPct%", ActivityType.TOOL_EXECUTION)
+            return ToolResult(success, "Media volume raised to $newPct%.", verified = success)
+        } else if (lower.contains("down") || lower.contains("decrease") || lower.contains("lower") || lower.contains("quieter") ||
+            lower.contains("komao") || lower.contains("কমাও") || lower.contains("kam") || lower.contains("कम")) {
+            val info = context.bridge.getVolumeInfo()
+            val musicCur = info["musicCurrent"] ?: 7
+            val musicMax = info["musicMax"] ?: 15
+            val newStep = (musicCur - 2).coerceAtLeast(0)
+            val newPct = if (musicMax > 0) ((newStep.toFloat() / musicMax) * 100).toInt() else 20
+            val success = context.bridge.setMusicVolume(newPct)
+            context.repository.logActivity("Volume Lowered", "$newPct%", ActivityType.TOOL_EXECUTION)
+            return ToolResult(success, "Media volume reduced to $newPct%.", verified = success)
+        } else if ((lower.contains("set") || lower.contains("adjust") || lower.contains("change") || lower.contains("volume")) && num != null) {
             val target = num.coerceIn(0, 100)
             val success = context.bridge.setMusicVolume(target)
             val updated = context.bridge.getVolumeInfo()
@@ -222,8 +242,10 @@ class FlashlightTool : Tool {
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
         val lower = input.lowercase()
         val enable = when {
-            lower.contains("on") || lower.contains("enable") || lower.contains("start") || lower.contains("activate") -> true
-            lower.contains("off") || lower.contains("disable") || lower.contains("stop") -> false
+            lower.contains("on") || lower.contains("enable") || lower.contains("start") || lower.contains("activate") ||
+            lower.contains("অন") || lower.contains("চালু") || lower.contains("chalu") || lower.contains("jalao") || lower.contains("jalo") -> true
+            lower.contains("off") || lower.contains("disable") || lower.contains("stop") ||
+            lower.contains("বন্ধ") || lower.contains("bondho") || lower.contains("band") -> false
             else -> !context.bridge.isFlashlightOn()
         }
 
@@ -264,11 +286,10 @@ class MediaControlTool : Tool {
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
         val lower = input.lowercase()
         val action = when {
-            lower.contains("next") || lower.contains("skip") -> "next"
-            lower.contains("previous") || lower.contains("prev") || lower.contains("back") -> "previous"
-            lower.contains("pause") -> "pause"
-            lower.contains("play") -> "play"
-            lower.contains("stop") -> "stop"
+            lower.contains("next") || lower.contains("skip") || lower.contains("porer") -> "next"
+            lower.contains("previous") || lower.contains("prev") || lower.contains("back") || lower.contains("pager") -> "previous"
+            lower.contains("pause") || lower.contains("stop") || lower.contains("thamao") || lower.contains("roko") || lower.contains("থামাও") || lower.contains("रोको") -> "pause"
+            lower.contains("play") || lower.contains("resume") || lower.contains("chalao") || lower.contains("bajao") || lower.contains("চালাও") || lower.contains("बजाओ") -> "play"
             else -> "play_pause"
         }
         val success = context.bridge.dispatchMediaControl(action)
@@ -289,11 +310,25 @@ class AppLauncherTool : Tool {
     override val permissions = emptyList<String>()
 
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
-        val clean = input.replace("open app", "", ignoreCase = true)
+        var clean = input
+            .replace("open app", "", ignoreCase = true)
             .replace("launch app", "", ignoreCase = true)
             .replace("open", "", ignoreCase = true)
             .replace("launch", "", ignoreCase = true)
+            .replace("kholo", "", ignoreCase = true)
+            .replace("khule dao", "", ignoreCase = true)
+            .replace("खोलो", "", ignoreCase = true)
+            .replace("খোলো", "", ignoreCase = true)
             .trim()
+
+        // Handle common names
+        clean = when {
+            clean.contains("facebook", ignoreCase = true) -> "Facebook"
+            clean.contains("whatsapp", ignoreCase = true) -> "WhatsApp"
+            clean.contains("chrome", ignoreCase = true) -> "Chrome"
+            clean.contains("youtube", ignoreCase = true) -> "YouTube"
+            else -> clean
+        }
 
         if (clean.isBlank() || clean.equals("apps", ignoreCase = true) || clean.equals("list", ignoreCase = true)) {
             val apps = context.bridge.getInstalledAppsList().take(15)
@@ -738,5 +773,94 @@ class WeatherTool : Tool {
         val info = "Meteorological telemetry for $location: 22°C (72°F), Clear Skies, Humidity 45%, Atmospheric Pressure 1014 hPa, Wind 8 km/h NW. Ambient conditions optimal."
         context.repository.logActivity("Weather Queried", location, ActivityType.TOOL_EXECUTION)
         return ToolResult(true, info, verified = true)
+    }
+}
+
+// 23. YOUTUBE SEARCH TOOL
+class YouTubeSearchTool : Tool {
+    override val name = "YouTubeSearch"
+    override val description = "Searches for videos, channels, or queries on YouTube and launches playback or search view"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = listOf("INTERNET")
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        var query = input
+            .replace("search youtube for", "", ignoreCase = true)
+            .replace("search on youtube for", "", ignoreCase = true)
+            .replace("search on youtube", "", ignoreCase = true)
+            .replace("search youtube", "", ignoreCase = true)
+            .replace("find on youtube", "", ignoreCase = true)
+            .replace("look up on youtube", "", ignoreCase = true)
+            .replace("play on youtube", "", ignoreCase = true)
+            .replace("youtube e search koro", "", ignoreCase = true)
+            .replace("youtube search", "", ignoreCase = true)
+            .replace("youtube e", "", ignoreCase = true)
+            .replace("youtube par", "", ignoreCase = true)
+            .replace("youtube mein", "", ignoreCase = true)
+            .replace("search koro", "", ignoreCase = true)
+            .replace("search karo", "", ignoreCase = true)
+            .replace("ইউটিউবে", "", ignoreCase = true)
+            .replace("সার্চ করো", "", ignoreCase = true)
+            .replace("খোঁজো", "", ignoreCase = true)
+            .replace("यूट्यूब पर", "", ignoreCase = true)
+            .replace("सर्च करो", "", ignoreCase = true)
+            .replace("खोजो", "", ignoreCase = true)
+            .replace("youtube", "", ignoreCase = true)
+            .trim()
+
+        if (query.isBlank()) {
+            query = "Trending"
+        }
+
+        val result = context.bridge.searchYouTube(query)
+        context.repository.logActivity("YouTube Search Dispatched", query, ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = result.first,
+            output = result.second,
+            verified = result.first
+        )
+    }
+}
+
+// 24. PHONE CALL TOOL
+class PhoneCallTool : Tool {
+    override val name = "PhoneCall"
+    override val description = "Initiates direct voice calls or opens Android phone dialer with target contact or phone number"
+    override val riskLevel = RiskLevel.CONFIRMATION
+    override val permissions = listOf("CALL_PHONE", "READ_CONTACTS")
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val clean = input
+            .replace("call to", "", ignoreCase = true)
+            .replace("make a call to", "", ignoreCase = true)
+            .replace("make call to", "", ignoreCase = true)
+            .replace("phone call to", "", ignoreCase = true)
+            .replace("call", "", ignoreCase = true)
+            .replace("dial", "", ignoreCase = true)
+            .replace("phone", "", ignoreCase = true)
+            .replace("ke call koro", "", ignoreCase = true)
+            .replace("ko call karo", "", ignoreCase = true)
+            .replace("কল করো", "", ignoreCase = true)
+            .replace("ফোন করো", "", ignoreCase = true)
+            .replace("ক্যাল করো", "", ignoreCase = true)
+            .replace("कॉल करो", "", ignoreCase = true)
+            .replace("फोन करो", "", ignoreCase = true)
+            .trim()
+
+        if (clean.isBlank()) {
+            return ToolResult(
+                success = false,
+                output = "Please specify a contact name (e.g., Musa) or phone digits to initiate voice transmission.",
+                verified = false
+            )
+        }
+
+        val res = context.bridge.makePhoneCall(clean)
+        context.repository.logActivity("Phone Call Dispatched", "$clean -> ${res.second}", ActivityType.TOOL_EXECUTION, RiskLevel.CONFIRMATION)
+        return ToolResult(
+            success = res.first,
+            output = res.second,
+            verified = res.first
+        )
     }
 }

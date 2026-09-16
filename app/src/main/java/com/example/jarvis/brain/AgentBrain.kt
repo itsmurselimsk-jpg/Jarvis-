@@ -69,6 +69,8 @@ class AgentBrain(
         registry.register(NotificationTool())
         registry.register(WebSearchTool())
         registry.register(WeatherTool())
+        registry.register(YouTubeSearchTool())
+        registry.register(PhoneCallTool())
     }
 
     /**

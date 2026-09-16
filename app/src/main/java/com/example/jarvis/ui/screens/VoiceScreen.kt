@@ -3,6 +3,7 @@ package com.example.jarvis.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -76,7 +80,9 @@ fun VoiceScreen(
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onSpeakText: (String, Float, Float) -> Unit,
-    onStopSpeaking: () -> Unit
+    onStopSpeaking: () -> Unit,
+    onNavigateVoiceSetup: () -> Unit = {},
+    onNavigateVoiceProfiles: () -> Unit = {}
 ) {
     var speechSpeed by remember { mutableFloatStateOf(1.0f) }
     var speechPitch by remember { mutableFloatStateOf(1.0f) }
@@ -375,6 +381,74 @@ fun VoiceScreen(
                         inactiveTrackColor = Color(0xFF1E293B)
                     )
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Quick Navigation to Acoustic Wake Engine & Vocal Profiles
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF090E1A))
+                .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(12.dp))
+                .padding(14.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "ADVANCED ACOUSTIC & PROFILE HUBS",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = JarvisTextDim
+                )
+
+                // 1. Acoustic Wake Engine Setup
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onNavigateVoiceSetup)
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Mic, contentDescription = null, tint = JarvisCyan, modifier = Modifier.size(18.dp))
+                        Column {
+                            Text("Always-Available 'Hey JARVIS' Setup", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = JarvisTextPrimary)
+                            Text("Service state, background permissions & overlay", fontSize = 10.sp, color = JarvisTextDim)
+                        }
+                    }
+                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = JarvisTextDim, modifier = Modifier.size(18.dp))
+                }
+
+                // 2. Vocal Profiles & Multilingual Calibration
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onNavigateVoiceProfiles)
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.RecordVoiceOver, contentDescription = null, tint = JarvisCyan, modifier = Modifier.size(18.dp))
+                        Column {
+                            Text("Selectable Vocal Profiles & Languages", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = JarvisTextPrimary)
+                            Text("5 tonal calibrations & English/Bengali/Hindi tuning", fontSize = 10.sp, color = JarvisTextDim)
+                        }
+                    }
+                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = JarvisTextDim, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }

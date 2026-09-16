@@ -69,9 +69,14 @@ class JarvisRepository(private val context: Context) {
         val decryptedKey = if (encryptedKey.isNotEmpty()) EncryptedStorage.decrypt(encryptedKey) else ""
         val endpoint = prefs.getString("custom_endpoint", "https://api.openai.com/v1") ?: ""
         val model = prefs.getString("selected_model", "gemini-3.5-flash") ?: "gemini-3.5-flash"
-        val autoSpeak = prefs.getBoolean("auto_speak", false)
+        val autoSpeak = prefs.getBoolean("auto_speak", true)
         val speechRate = prefs.getFloat("speech_rate", 1.0f)
         val speechPitch = prefs.getFloat("speech_pitch", 1.0f)
+        val voiceProfileName = prefs.getString("voice_profile_name", "JARVIS Natural") ?: "JARVIS Natural"
+        val languageCode = prefs.getString("language_code", "auto") ?: "auto"
+        val continuousWake = prefs.getBoolean("continuous_wake_enabled", true)
+        val continuousConversation = prefs.getBoolean("continuous_conversation_enabled", true)
+        val lockScreenWake = prefs.getBoolean("lock_screen_wake_enabled", true)
 
         _settings.value = ProviderSettings(
             customApiKey = decryptedKey,
@@ -79,7 +84,12 @@ class JarvisRepository(private val context: Context) {
             selectedModel = model,
             autoSpeakResponses = autoSpeak,
             speechRate = speechRate,
-            speechPitch = speechPitch
+            speechPitch = speechPitch,
+            voiceProfileName = voiceProfileName,
+            languageCode = languageCode,
+            continuousWakeEnabled = continuousWake,
+            continuousConversationEnabled = continuousConversation,
+            lockScreenWakeEnabled = lockScreenWake
         )
     }
 
@@ -393,6 +403,11 @@ class JarvisRepository(private val context: Context) {
             putBoolean("auto_speak", newSettings.autoSpeakResponses)
             putFloat("speech_rate", newSettings.speechRate)
             putFloat("speech_pitch", newSettings.speechPitch)
+            putString("voice_profile_name", newSettings.voiceProfileName)
+            putString("language_code", newSettings.languageCode)
+            putBoolean("continuous_wake_enabled", newSettings.continuousWakeEnabled)
+            putBoolean("continuous_conversation_enabled", newSettings.continuousConversationEnabled)
+            putBoolean("lock_screen_wake_enabled", newSettings.lockScreenWakeEnabled)
             apply()
         }
         logActivity("Settings Updated", "AI Provider & speech config securely committed.", ActivityType.SYSTEM_EVENT)

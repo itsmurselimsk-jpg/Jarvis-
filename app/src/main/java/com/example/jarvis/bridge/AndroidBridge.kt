@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
@@ -18,14 +19,18 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.PowerManager
 import android.os.StatFs
+import android.provider.ContactsContract
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.view.KeyEvent
+import androidx.core.content.ContextCompat
 import com.example.jarvis.model.DeviceTelemetry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,6 +64,7 @@ class AndroidBridge(private val context: Context) {
     private var isTtsReady = false
 
     private var onSpeechResultCallback: ((String) -> Unit)? = null
+    private var onUtteranceDoneCallback: ((String?) -> Unit)? = null
     private var torchCallback: CameraManager.TorchCallback? = null
 
     init {
@@ -79,6 +85,7 @@ class AndroidBridge(private val context: Context) {
                     }
                     override fun onDone(utteranceId: String?) {
                         _isSpeaking.value = false
+                        onUtteranceDoneCallback?.invoke(utteranceId)
                     }
                     override fun onError(utteranceId: String?) {
                         _isSpeaking.value = false
@@ -172,13 +179,46 @@ class AndroidBridge(private val context: Context) {
         _isListening.value = false
     }
 
-    fun speak(text: String, speechRate: Float = 1.0f, pitch: Float = 1.0f) {
+    fun setUtteranceDoneListener(listener: ((String?) -> Unit)?) {
+        onUtteranceDoneCallback = listener
+    }
+
+    fun speak(
+        text: String,
+        speechRate: Float = 1.0f,
+        pitch: Float = 1.0f,
+        locale: Locale? = null,
+        onDone: (() -> Unit)? = null
+    ) {
         if (!isTtsReady || text.isBlank()) return
+        if (locale != null) {
+            try {
+                textToSpeech?.language = locale
+            } catch (_: Exception) {}
+        }
         textToSpeech?.setSpeechRate(speechRate)
         textToSpeech?.setPitch(pitch)
+        val utteranceId = "JARVIS_${System.currentTimeMillis()}"
+        if (onDone != null) {
+            val previousDone = onUtteranceDoneCallback
+            onUtteranceDoneCallback = { id ->
+                previousDone?.invoke(id)
+                if (id == utteranceId) {
+                    onDone()
+                }
+            }
+        }
         val params = Bundle()
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "JARVIS_${System.currentTimeMillis()}")
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "JARVIS_SPEECH")
+        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+    }
+
+    fun getInstalledTtsVoices(): List<String> {
+        return try {
+            textToSpeech?.voices?.map { "${it.name} (${it.locale.displayLanguage})" }?.take(15) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun stopSpeaking() {
@@ -412,6 +452,160 @@ class AndroidBridge(private val context: Context) {
             }
         }
         return Pair(false, "No installed app found matching '$query'")
+    }
+
+    // YOUTUBE SEARCH & PLAYBACK (REAL INTENT ACTION)
+    fun searchYouTube(query: String): Pair<Boolean, String> {
+        val pm = context.packageManager
+        val cleanQuery = query.trim()
+        val encodedQuery = try {
+            java.net.URLEncoder.encode(cleanQuery, "UTF-8")
+        } catch (_: Exception) { cleanQuery }
+
+        val youtubePackage = "com.google.android.youtube"
+        val isAppInstalled = try {
+            pm.getPackageInfo(youtubePackage, 0)
+            true
+        } catch (_: Exception) { false }
+
+        if (isAppInstalled) {
+            try {
+                val appIntent = Intent(Intent.ACTION_SEARCH).apply {
+                    setPackage(youtubePackage)
+                    putExtra("query", cleanQuery)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(appIntent)
+                return Pair(true, "Dispatched query '$cleanQuery' directly to YouTube application.")
+            } catch (_: Exception) {
+                try {
+                    val viewIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")).apply {
+                        setPackage(youtubePackage)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(viewIntent)
+                    return Pair(true, "Opened YouTube search results for '$cleanQuery'.")
+                } catch (_: Exception) {}
+            }
+        }
+
+        // Fallback: Web browser search for YouTube
+        return try {
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(webIntent)
+            Pair(true, "Dispatched YouTube search for '$cleanQuery' via web browser.")
+        } catch (e: Exception) {
+            Pair(false, "Could not launch YouTube query: ${e.message}")
+        }
+    }
+
+    // PHONE CALL & CONTACT RESOLVER
+    fun makePhoneCall(target: String): Pair<Boolean, String> {
+        val clean = target.trim()
+        var phoneNumber: String? = null
+        var contactName: String = clean
+
+        // 1. If target is already numeric phone digits
+        val digitOnly = clean.filter { it.isDigit() || it == '+' }
+        if (digitOnly.length >= 3 && digitOnly.any { it.isDigit() }) {
+            phoneNumber = digitOnly
+        } else {
+            // 2. Resolve from contacts if permission granted
+            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    val cursor: Cursor? = context.contentResolver.query(
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        arrayOf(
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER
+                        ),
+                        "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
+                        arrayOf("%$clean%"),
+                        null
+                    )
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                            val numIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            if (nameIdx >= 0) contactName = it.getString(nameIdx)
+                            if (numIdx >= 0) phoneNumber = it.getString(numIdx)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        val targetNum = phoneNumber ?: clean
+        val hasCallPermission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
+
+        return try {
+            if (hasCallPermission && phoneNumber != null) {
+                val callIntent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$targetNum")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(callIntent)
+                Pair(true, "Initiated direct voice call to $contactName ($targetNum).")
+            } else {
+                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$targetNum")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(dialIntent)
+                Pair(true, "Opened system phone dialer for $contactName ($targetNum).")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Failed to initiate call: ${e.message}")
+        }
+    }
+
+    // BATTERY OPTIMIZATION & OVERLAY PERMISSIONS
+    fun isIgnoringBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            return pm?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+        }
+        return true
+    }
+
+    fun requestIgnoreBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } catch (_: Exception) {
+                try {
+                    val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(fallback)
+                    true
+                } catch (_: Exception) { false }
+            }
+        }
+        return false
+    }
+
+    fun canDrawOverlays(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else true
+    }
+
+    fun openOverlaySettings(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } catch (_: Exception) { false }
+        } else true
     }
 
     // CLIPBOARD

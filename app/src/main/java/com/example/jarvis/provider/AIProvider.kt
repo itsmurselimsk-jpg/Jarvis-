@@ -346,12 +346,21 @@ object LocalNeuralBrainProvider {
         val lower = userInput.lowercase().trim()
 
         return when {
-            // Flashlight
-            lower.contains("flashlight") || lower.contains("torch") ->
+            // Flashlight / Torch
+            lower.contains("flashlight") || lower.contains("torch") || lower.contains("ফ্ল্যাশলাইট") || lower.contains("फ्लैशलाइट") || lower.contains("লাইট") ->
                 ToolDecision(true, "Flashlight", userInput, "Flashlight keyword detected")
 
+            // YouTube Search & Playback
+            lower.contains("youtube") || lower.contains("ইউটিউব") || lower.contains("यूट्यूब") ->
+                ToolDecision(true, "YouTubeSearch", userInput, "YouTube video search and launch")
+
+            // Phone Call
+            lower.startsWith("call ") || lower.startsWith("dial ") || lower.startsWith("phone ") ||
+            lower.contains("call koro") || lower.contains("call karo") || lower.contains("কল করো") || lower.contains("ফোন করো") || lower.contains("कॉल करो") ->
+                ToolDecision(true, "PhoneCall", userInput, "Voice phone call dispatch")
+
             // Battery
-            lower.contains("battery") || lower.contains("power level") || lower.contains("charging") ->
+            lower.contains("battery") || lower.contains("power level") || lower.contains("charging") || lower.contains("ব্যাটারি") || lower.contains("बैटरी") ->
                 ToolDecision(true, "Battery", userInput, "Battery inspection query")
 
             // Network / Internet
@@ -367,7 +376,8 @@ object LocalNeuralBrainProvider {
                 ToolDecision(true, "Bluetooth", userInput, "Bluetooth radio status query")
 
             // Volume
-            lower.contains("volume") || lower.contains("sound level") || lower.contains("louder") || lower.contains("quieter") ->
+            lower.contains("volume") || lower.contains("sound level") || lower.contains("louder") || lower.contains("quieter") ||
+            lower.contains("ভলিউম") || lower.contains("আওয়াজ") || lower.contains("आवाज़") || lower.contains("aawaz") ->
                 ToolDecision(true, "Volume", userInput, "Audio volume request")
 
             // Brightness
@@ -375,11 +385,15 @@ object LocalNeuralBrainProvider {
                 ToolDecision(true, "Brightness", userInput, "Display brightness query")
 
             // Media
-            lower.contains("play music") || lower.contains("pause music") || lower.contains("next song") || lower.contains("skip track") ->
+            lower.contains("play music") || lower.contains("pause music") || lower.contains("next song") || lower.contains("skip track") ||
+            lower.contains("play this") || lower.contains("play ") || lower.contains("pause") || lower.contains("গান চালাও") || lower.contains("गाना बजाओ") ||
+            lower.contains("chalao") || lower.contains("bajao") ->
                 ToolDecision(true, "MediaControl", userInput, "Media key event request")
 
             // App Launcher
-            lower.startsWith("open app") || lower.startsWith("launch app") || lower.startsWith("open ") && !lower.contains("http") && !lower.contains("settings") ->
+            lower.startsWith("open app") || lower.startsWith("launch app") || lower.startsWith("open ") || lower.startsWith("launch ") ||
+            lower.contains("kholo") || lower.contains("खोलो") || lower.contains("খোলো") ||
+            lower.contains("facebook") || lower.contains("whatsapp") || lower.contains("ফেসবুক") || lower.contains("फेसबुक") ->
                 ToolDecision(true, "AppLauncher", userInput, "Application launch request")
 
             // Open URL

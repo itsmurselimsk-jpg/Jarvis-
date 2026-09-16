@@ -20,15 +20,27 @@ interface WakeWordEngine {
     fun stopListening()
 }
 
-class DefaultWakeWordEngine : WakeWordEngine {
-    override val name = "Heuristic Acoustic Detector"
-    override val isSupported = false // Stubbed for continuous wake-word hardware integration
+class DefaultWakeWordEngine(private val context: Context) : WakeWordEngine {
+    override val name = "Continuous Acoustic Wake Engine"
+    override val isSupported = true
+
+    private var engine: ContinuousWakeEngine? = null
 
     override fun startListening(onWakeWordDetected: () -> Unit) {
-        // Continuous background listening will integrate when hardware low-power DSP is configured
+        if (!VoicePermissions.hasRecordAudioPermission(context)) return
+        engine = ContinuousWakeEngine(
+            context = context,
+            onWakeWordDetected = { onWakeWordDetected() },
+            onCommandReceived = { _, _ -> }
+        ).apply {
+            startMonitoring()
+        }
     }
 
-    override fun stopListening() {}
+    override fun stopListening() {
+        engine?.stop()
+        engine = null
+    }
 }
 
 object VoicePermissions {

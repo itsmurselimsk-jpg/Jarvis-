@@ -27,7 +27,9 @@ enum class SubScreen {
     ACTIVITY,
     VISION,
     PRIVACY,
-    BRIDGE
+    BRIDGE,
+    VOICE_SETUP,
+    VOICE_SELECTION
 }
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
@@ -138,11 +140,27 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         _jarvisState.value = JarvisState.IDLE
     }
 
-    fun speakText(text: String, rate: Float? = null, pitch: Float? = null) {
+    fun speakText(
+        text: String,
+        rate: Float? = null,
+        pitch: Float? = null,
+        locale: java.util.Locale? = null,
+        onDone: () -> Unit = {}
+    ) {
         _jarvisState.value = JarvisState.SPEAKING
         val r = rate ?: settings.value.speechRate
         val p = pitch ?: settings.value.speechPitch
-        bridge.speak(text, r, p)
+        bridge.speak(text, r, p, locale) {
+            _jarvisState.value = JarvisState.IDLE
+            onDone()
+        }
+    }
+
+    fun triggerWakeSession() {
+        val intent = android.content.Intent(getApplication(), com.example.jarvis.service.JarvisVoiceService::class.java).apply {
+            action = com.example.jarvis.service.JarvisVoiceService.ACTION_TRIGGER_WAKE
+        }
+        getApplication<Application>().startService(intent)
     }
 
     fun stopSpeaking() {

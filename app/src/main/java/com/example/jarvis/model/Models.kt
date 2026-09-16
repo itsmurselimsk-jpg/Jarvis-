@@ -109,9 +109,14 @@ data class ProviderSettings(
     val selectedModel: String = "gemini-3.5-flash",
     val systemPrompt: String = "You are JARVIS, an ultra-intelligent, sophisticated, polite personal AI operating layer. Address user as Sir or Ma'am. Be concise, precise, proactive, and futuristic.",
     val temperature: Float = 0.7f,
-    val autoSpeakResponses: Boolean = false,
+    val autoSpeakResponses: Boolean = true,
     val speechRate: Float = 1.0f,
-    val speechPitch: Float = 1.0f
+    val speechPitch: Float = 1.0f,
+    val voiceProfileName: String = "JARVIS Natural",
+    val languageCode: String = "auto",
+    val continuousWakeEnabled: Boolean = true,
+    val continuousConversationEnabled: Boolean = true,
+    val lockScreenWakeEnabled: Boolean = true
 )
 
 data class VisionScan(

@@ -52,6 +52,8 @@ import com.example.jarvis.ui.screens.SettingsScreen
 import com.example.jarvis.ui.screens.TasksScreen
 import com.example.jarvis.ui.screens.ToolsScreen
 import com.example.jarvis.ui.screens.VisionScreen
+import com.example.jarvis.ui.screens.VoiceSelectionScreen
+import com.example.jarvis.ui.screens.VoiceSetupScreen
 import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorderSubtle
 import com.example.jarvis.ui.theme.JarvisCyan
@@ -155,6 +157,18 @@ fun JarvisApp(
                             onToggleFlashlight = { viewModel.toggleFlashlight(it) },
                             onOpenSystemSettings = { viewModel.openAndroidSettings() }
                         )
+                        SubScreen.VOICE_SETUP -> VoiceSetupScreen(
+                            currentSettings = settings,
+                            onUpdateSettings = { viewModel.repository.updateSettings(it) },
+                            onTestWakeTrigger = { viewModel.triggerWakeSession() }
+                        )
+                        SubScreen.VOICE_SELECTION -> VoiceSelectionScreen(
+                            currentSettings = settings,
+                            onUpdateSettings = { viewModel.repository.updateSettings(it) },
+                            onTestSpeak = { text, rate, pitch ->
+                                viewModel.speakText(text, rate, pitch)
+                            }
+                        )
                         null -> {}
                     }
                 }
@@ -211,7 +225,9 @@ fun JarvisApp(
                         onSpeakText = { text, rate, pitch ->
                             viewModel.speakText(text, rate, pitch)
                         },
-                        onStopSpeaking = { viewModel.stopSpeaking() }
+                        onStopSpeaking = { viewModel.stopSpeaking() },
+                        onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
+                        onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) }
                     )
 
                     NavTab.CHAT -> ChatScreen(
@@ -248,7 +264,9 @@ fun JarvisApp(
                         onNavigateMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
                         onNavigateBridge = { viewModel.openSubScreen(SubScreen.BRIDGE) },
                         onNavigateActivity = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
-                        onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) }
+                        onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
+                        onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
+                        onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) }
                     )
                 }
             }
