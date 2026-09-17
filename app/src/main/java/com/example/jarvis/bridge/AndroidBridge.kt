@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -53,11 +55,20 @@ class AndroidBridge(private val context: Context) {
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
+    private val _isMicMuted = MutableStateFlow(false)
+    val isMicMuted: StateFlow<Boolean> = _isMicMuted.asStateFlow()
+
+    private val _isSpeakerEnabled = MutableStateFlow(true)
+    val isSpeakerEnabled: StateFlow<Boolean> = _isSpeakerEnabled.asStateFlow()
+
     private val _speechSupported = MutableStateFlow(true)
     val speechSupported: StateFlow<Boolean> = _speechSupported.asStateFlow()
 
     private val _isTorchActive = MutableStateFlow(false)
     val isTorchActive: StateFlow<Boolean> = _isTorchActive.asStateFlow()
+
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
@@ -155,7 +166,35 @@ class AndroidBridge(private val context: Context) {
         }
     }
 
+    fun toggleMicMute() {
+        _isMicMuted.value = !_isMicMuted.value
+        if (_isMicMuted.value && _isListening.value) {
+            stopListening()
+        }
+    }
+
+    fun toggleSpeaker() {
+        _isSpeakerEnabled.value = !_isSpeakerEnabled.value
+        if (!_isSpeakerEnabled.value && _isSpeaking.value) {
+            stopSpeaking()
+        }
+    }
+
+    fun interruptAndListen(onResult: (String) -> Unit) {
+        if (_isSpeaking.value) {
+            stopSpeaking()
+        }
+        startListening(onResult)
+    }
+
     fun startListening(onResult: (String) -> Unit) {
+        if (_isMicMuted.value) {
+            _isListening.value = false
+            return
+        }
+        if (_isSpeaking.value) {
+            stopSpeaking()
+        }
         onSpeechResultCallback = onResult
         _liveTranscript.value = ""
         try {
@@ -183,6 +222,37 @@ class AndroidBridge(private val context: Context) {
         onUtteranceDoneCallback = listener
     }
 
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(playbackAttributes)
+                .setOnAudioFocusChangeListener { focusChange ->
+                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        stopSpeaking()
+                    }
+                }
+                .build()
+            audioFocusRequest = focusRequest
+            audioManager?.requestAudioFocus(focusRequest)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus(null)
+        }
+    }
+
     fun speak(
         text: String,
         speechRate: Float = 1.0f,
@@ -190,7 +260,11 @@ class AndroidBridge(private val context: Context) {
         locale: Locale? = null,
         onDone: (() -> Unit)? = null
     ) {
-        if (!isTtsReady || text.isBlank()) return
+        if (!isTtsReady || text.isBlank() || !_isSpeakerEnabled.value) {
+            onDone?.invoke()
+            return
+        }
+        requestAudioFocus()
         if (locale != null) {
             try {
                 textToSpeech?.language = locale
@@ -204,6 +278,7 @@ class AndroidBridge(private val context: Context) {
             onUtteranceDoneCallback = { id ->
                 previousDone?.invoke(id)
                 if (id == utteranceId) {
+                    abandonAudioFocus()
                     onDone()
                 }
             }
@@ -223,6 +298,7 @@ class AndroidBridge(private val context: Context) {
 
     fun stopSpeaking() {
         textToSpeech?.stop()
+        abandonAudioFocus()
         _isSpeaking.value = false
     }
 

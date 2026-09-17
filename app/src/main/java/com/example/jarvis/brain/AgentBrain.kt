@@ -45,6 +45,8 @@ class AgentBrain(
     private val _currentPlanExplanation = MutableStateFlow<String?>(null)
     val currentPlanExplanation: StateFlow<String?> = _currentPlanExplanation.asStateFlow()
 
+    var onSpeechCompletedCallback: (() -> Unit)? = null
+
     init {
         // Register all real Android tools
         registry.register(BatteryTool())
@@ -239,9 +241,19 @@ class AgentBrain(
         val settings = repository.settings.value
         if (settings.autoSpeakResponses) {
             onSpeaking()
-            bridge.speak(text, speechRate = settings.speechRate, pitch = settings.speechPitch)
+            bridge.speak(
+                text = text,
+                speechRate = settings.speechRate,
+                pitch = settings.speechPitch,
+                onDone = {
+                    onIdle()
+                    onSpeechCompletedCallback?.invoke()
+                }
+            )
+        } else {
+            onIdle()
+            onSpeechCompletedCallback?.invoke()
         }
-        onIdle()
     }
 
     private fun retrieveRelevantMemories(query: String): String {

@@ -21,12 +21,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -77,10 +80,20 @@ fun VoiceScreen(
     liveTranscript: String,
     lastResponse: String,
     speechSupported: Boolean,
+    isContinuousModeActive: Boolean = false,
+    isMicMuted: Boolean = false,
+    isSpeakerEnabled: Boolean = true,
+    wakeWordStatus: String = "Active (Hey JARVIS)",
+    currentLanguage: String = "Multilingual (EN/HI/BN)",
+    currentVoiceProfile: String = "JARVIS Natural",
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onSpeakText: (String, Float, Float) -> Unit,
     onStopSpeaking: () -> Unit,
+    onToggleContinuousMode: () -> Unit = {},
+    onToggleMicMute: () -> Unit = {},
+    onToggleSpeaker: () -> Unit = {},
+    onInterruptAndListen: () -> Unit = {},
     onNavigateVoiceSetup: () -> Unit = {},
     onNavigateVoiceProfiles: () -> Unit = {}
 ) {
@@ -95,61 +108,112 @@ fun VoiceScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // State Header
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF091222))
-                .border(0.5.dp, JarvisBorder, RoundedCornerShape(20.dp))
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+        // Top Audio Controls & Status Bar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Wake Word & State Capsule
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFF091222))
+                    .border(0.5.dp, JarvisBorder, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Box(
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when (jarvisState) {
+                                    JarvisState.LISTENING -> JarvisCyanBright
+                                    JarvisState.THINKING -> JarvisElectricBlue
+                                    JarvisState.SPEAKING -> JarvisGreen
+                                    JarvisState.ERROR -> JarvisRed
+                                    else -> JarvisCyan
+                                }
+                            )
+                    )
+                    Text(
+                        text = jarvisState.name,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = when (jarvisState) {
+                            JarvisState.LISTENING -> JarvisCyanBright
+                            JarvisState.THINKING -> JarvisElectricBlue
+                            JarvisState.SPEAKING -> JarvisGreen
+                            JarvisState.ERROR -> JarvisRed
+                            else -> JarvisCyan
+                        }
+                    )
+                }
+            }
+
+            // Quick Mute & Speaker Toggles
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Mic Mute Button
+                IconButton(
+                    onClick = onToggleMicMute,
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(
-                            when (jarvisState) {
-                                JarvisState.LISTENING -> JarvisCyanBright
-                                JarvisState.THINKING -> JarvisElectricBlue
-                                JarvisState.SPEAKING -> JarvisGreen
-                                JarvisState.ERROR -> JarvisRed
-                                else -> JarvisCyan
-                            }
-                        )
-                )
-                Text(
-                    text = "STATE: ${jarvisState.name}",
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = when (jarvisState) {
-                        JarvisState.LISTENING -> JarvisCyanBright
-                        JarvisState.THINKING -> JarvisElectricBlue
-                        JarvisState.SPEAKING -> JarvisGreen
-                        JarvisState.ERROR -> JarvisRed
-                        else -> JarvisCyan
-                    }
-                )
+                        .background(if (isMicMuted) JarvisRed.copy(alpha = 0.2f) else Color(0xFF091222))
+                        .border(1.dp, if (isMicMuted) JarvisRed else JarvisBorderSubtle, CircleShape)
+                        .testTag("toggle_mic_mute_button")
+                ) {
+                    Icon(
+                        imageVector = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                        contentDescription = "Toggle Mic Mute",
+                        tint = if (isMicMuted) JarvisRed else JarvisCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Speaker Toggle Button
+                IconButton(
+                    onClick = onToggleSpeaker,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (!isSpeakerEnabled) JarvisRed.copy(alpha = 0.2f) else Color(0xFF091222))
+                        .border(1.dp, if (!isSpeakerEnabled) JarvisRed else JarvisBorderSubtle, CircleShape)
+                        .testTag("toggle_speaker_button")
+                ) {
+                    Icon(
+                        imageVector = if (!isSpeakerEnabled) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                        contentDescription = "Toggle Speaker",
+                        tint = if (!isSpeakerEnabled) JarvisRed else JarvisCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Center Animated Orb
+        // Center Animated Orb (Supports tap to interrupt when speaking!)
         JarvisOrb(
             size = 200.dp,
             state = jarvisState,
             onClick = {
-                if (isListening) onStopListening() else onStartListening()
+                if (isSpeaking) {
+                    onInterruptAndListen()
+                } else if (isListening) {
+                    onStopListening()
+                } else {
+                    onStartListening()
+                }
             }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Live Voice Waveform
         VoiceWaveform(
@@ -158,6 +222,59 @@ fun VoiceScreen(
             isActive = isListening || isSpeaking,
             accentColor = if (isSpeaking) JarvisGreen else JarvisCyan
         )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // S2S Mode Status Banner & Toggle
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isContinuousModeActive) JarvisCyan.copy(alpha = 0.12f) else Color(0xFF091222))
+                .border(1.dp, if (isContinuousModeActive) JarvisCyan else JarvisBorderSubtle, RoundedCornerShape(10.dp))
+                .clickable(onClick = onToggleContinuousMode)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .testTag("toggle_s2s_button")
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        tint = if (isContinuousModeActive) JarvisCyan else JarvisTextDim,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column {
+                        Text(
+                            text = if (isContinuousModeActive) "CONTINUOUS S2S: ACTIVE" else "CONTINUOUS S2S: OFF",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (isContinuousModeActive) JarvisCyan else JarvisTextPrimary
+                        )
+                        Text(
+                            text = if (isContinuousModeActive) "Listens automatically after speaking" else "Single-turn mode (tap to speak)",
+                            fontSize = 10.sp,
+                            color = JarvisTextSecondary
+                        )
+                    }
+                }
+                Text(
+                    text = if (isContinuousModeActive) "ENABLED" else "ENABLE",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isContinuousModeActive) JarvisGreen else JarvisCyan
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -310,6 +427,20 @@ fun VoiceScreen(
             }
 
             if (isSpeaking) {
+                Button(
+                    onClick = onInterruptAndListen,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = JarvisAmber,
+                        contentColor = Color.Black
+                    ),
+                    modifier = Modifier.testTag("interrupt_and_speak_button")
+                ) {
+                    Icon(imageVector = Icons.Default.Hearing, contentDescription = "Interrupt", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("INTERRUPT", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                }
+
                 OutlinedButton(
                     onClick = onStopSpeaking,
                     shape = RoundedCornerShape(10.dp),

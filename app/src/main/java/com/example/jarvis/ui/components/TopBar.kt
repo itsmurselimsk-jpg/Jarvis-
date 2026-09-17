@@ -6,8 +6,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,10 +25,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +57,8 @@ import com.example.jarvis.ui.theme.JarvisTextSecondary
 @Composable
 fun TopBar(
     telemetry: DeviceTelemetry,
-    isOnline: Boolean = true
+    isOnline: Boolean = true,
+    onProfileClick: () -> Unit = {}
 ) {
     val transition = rememberInfiniteTransition(label = "pulse_beacon")
     val alpha by transition.animateFloat(
@@ -80,10 +88,21 @@ fun TopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Official JARVIS Emblem Badge
+                Image(
+                    painter = painterResource(id = R.drawable.jarvis_logo_round),
+                    contentDescription = "JARVIS Logo",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, JarvisCyan.copy(alpha = 0.6f), CircleShape),
+                    contentScale = ContentScale.Fit
+                )
+
                 // Pulsing Green/Cyan Beacon
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(7.dp)
                         .clip(CircleShape)
                         .background(if (isOnline) JarvisGreen.copy(alpha = alpha) else Color.Red)
                 )
@@ -165,6 +184,21 @@ fun TopBar(
                     fontWeight = FontWeight.Medium,
                     color = JarvisCyanBright
                 )
+
+                // Operator Profile Icon Button
+                IconButton(
+                    onClick = onProfileClick,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .testTag("top_bar_profile_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Operator Profile",
+                        tint = JarvisCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
@@ -39,9 +39,9 @@ import com.example.jarvis.ui.theme.JarvisTextSecondary
 
 enum class NavTab(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
-    CHAT("Chat", Icons.Default.ChatBubble),
     VOICE("Voice", Icons.Default.Mic),
-    TASKS("Tasks", Icons.Default.CheckCircle),
+    CHAT("Chat", Icons.Default.ChatBubble),
+    TOOLS("Tools", Icons.Default.Build),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 

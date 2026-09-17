@@ -3,6 +3,7 @@ package com.example.jarvis.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.jarvis.auth.AuthManager
 import com.example.jarvis.brain.AgentBrain
 import com.example.jarvis.brain.ToolContext
 import com.example.jarvis.bridge.AndroidBridge
@@ -23,13 +24,16 @@ import kotlinx.coroutines.launch
 
 enum class SubScreen {
     TOOLS,
+    TASKS,
     MEMORY,
     ACTIVITY,
     VISION,
     PRIVACY,
     BRIDGE,
     VOICE_SETUP,
-    VOICE_SELECTION
+    VOICE_SELECTION,
+    ACCOUNT,
+    ABOUT
 }
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,9 +42,17 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val bridge = AndroidBridge(application)
     val aiProvider = JarvisUnifiedAIProvider(repository)
     val privacyAuditor = PrivacyAuditor(application, repository)
+    val authManager = AuthManager(application)
+    val authState = authManager.authState
 
     private val _safetyRequest = MutableStateFlow<SafetyRequest?>(null)
     val safetyRequest: StateFlow<SafetyRequest?> = _safetyRequest.asStateFlow()
+
+    private val _isContinuousConversationActive = MutableStateFlow(false)
+    val isContinuousConversationActive: StateFlow<Boolean> = _isContinuousConversationActive.asStateFlow()
+
+    val isMicMuted = bridge.isMicMuted
+    val isSpeakerEnabled = bridge.isSpeakerEnabled
 
     val brain = AgentBrain(
         repository = repository,
@@ -80,6 +92,16 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val speechSupported = bridge.speechSupported
 
     init {
+        // Continuous speech-to-speech loop: return to listening upon speech completion
+        brain.onSpeechCompletedCallback = {
+            if (_isContinuousConversationActive.value && !bridge.isMicMuted.value) {
+                viewModelScope.launch {
+                    delay(400)
+                    startListening()
+                }
+            }
+        }
+
         // Periodic telemetry refresh
         viewModelScope.launch {
             while (true) {
@@ -133,6 +155,34 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 sendUserMessage(spokenText)
             }
         }
+    }
+
+    fun interruptAndListen() {
+        _jarvisState.value = JarvisState.LISTENING
+        bridge.interruptAndListen { spokenText ->
+            _jarvisState.value = JarvisState.IDLE
+            if (spokenText.isNotBlank()) {
+                sendUserMessage(spokenText)
+            }
+        }
+    }
+
+    fun toggleContinuousConversation() {
+        _isContinuousConversationActive.value = !_isContinuousConversationActive.value
+        if (_isContinuousConversationActive.value) {
+            startListening()
+        } else {
+            stopListening()
+            if (isSpeaking.value) stopSpeaking()
+        }
+    }
+
+    fun toggleMicMute() {
+        bridge.toggleMicMute()
+    }
+
+    fun toggleSpeaker() {
+        bridge.toggleSpeaker()
     }
 
     fun stopListening() {

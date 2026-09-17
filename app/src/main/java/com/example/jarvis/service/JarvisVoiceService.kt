@@ -150,6 +150,8 @@ class JarvisVoiceService : Service() {
             SupportedLanguage.BENGALI -> LanguageDetector.getWakeGreeting(LanguageDetector.DetectedLanguage.BENGALI)
             SupportedLanguage.HINDI -> LanguageDetector.getWakeGreeting(LanguageDetector.DetectedLanguage.HINDI)
             SupportedLanguage.ENGLISH -> LanguageDetector.getWakeGreeting(LanguageDetector.DetectedLanguage.ENGLISH)
+            SupportedLanguage.HINGLISH -> "Haan Sir, main sun raha hoon. How can I help you?"
+            SupportedLanguage.BANGLISH -> "Hae Sir, ami shunchi. Kibaabe help korte pari?"
             SupportedLanguage.AUTO -> LanguageDetector.getWakeGreeting(detectedLang)
         }
 

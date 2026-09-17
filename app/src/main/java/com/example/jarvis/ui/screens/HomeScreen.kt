@@ -1,8 +1,12 @@
 package com.example.jarvis.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +91,67 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
     ) {
+        // 0. Official JARVIS Branding Banner
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xFF070E1A))
+                    .border(1.dp, JarvisBorderSubtle, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.jarvis_logo_round),
+                            contentDescription = "Official JARVIS Logo",
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, JarvisCyan.copy(alpha = 0.8f), CircleShape),
+                            contentScale = ContentScale.Fit
+                        )
+                        Column {
+                            Text(
+                                text = "J . A . R . V . I . S .",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 2.5.sp,
+                                color = JarvisCyan
+                            )
+                            Text(
+                                text = "PERSONAL AI ASSISTANT",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp,
+                                color = JarvisTextSecondary
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "THINK • HELP • DO",
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 1.sp,
+                        color = JarvisCyan.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
         // 1. Central Animated JARVIS Orb with multi-state transition
         item {
             Box(

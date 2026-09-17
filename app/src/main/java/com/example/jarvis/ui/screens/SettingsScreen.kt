@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -76,7 +77,8 @@ fun SettingsScreen(
     onNavigateActivity: () -> Unit,
     onNavigateVision: () -> Unit,
     onNavigateVoiceSetup: () -> Unit = {},
-    onNavigateVoiceProfiles: () -> Unit = {}
+    onNavigateVoiceProfiles: () -> Unit = {},
+    onNavigateAbout: () -> Unit = {}
 ) {
     var providerType by remember { mutableStateOf(currentSettings.providerType) }
     var customApiKey by remember { mutableStateOf(currentSettings.customApiKey) }
@@ -323,6 +325,7 @@ fun SettingsScreen(
                     SubmoduleNavigationRow("Optical Vision HUD", Icons.Default.Visibility, onNavigateVision)
                     SubmoduleNavigationRow("Hardware Telemetry Bridge", Icons.Default.Bolt, onNavigateBridge)
                     SubmoduleNavigationRow("System Activity Logs", Icons.Default.History, onNavigateActivity)
+                    SubmoduleNavigationRow("About JARVIS & Core Specs", Icons.Default.Info, onNavigateAbout)
                 }
             }
         }

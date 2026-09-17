@@ -99,6 +99,20 @@ enum class SupportedLanguage(
         nativeName = "हिंदी",
         locale = Locale("hi", "IN"),
         greetingPhrase = "हाँ सर, मैं सुन रहा हूँ। मैं आपकी क्या मदद कर सकता हूँ?"
+    ),
+    HINGLISH(
+        code = "hi-Latn",
+        displayName = "Hinglish",
+        nativeName = "Hinglish (Roman Script)",
+        locale = Locale("hi", "IN"),
+        greetingPhrase = "Haan Sir, main sun raha hoon. How can I help you?"
+    ),
+    BANGLISH(
+        code = "bn-Latn",
+        displayName = "Banglish",
+        nativeName = "Banglish (Roman Script)",
+        locale = Locale("bn", "BD"),
+        greetingPhrase = "Hae Sir, ami shunchi. Kibaabe help korte pari?"
     );
 
     companion object {
