@@ -252,6 +252,21 @@ fun AccountProfileScreen(
                         color = JarvisTextPrimary
                     )
                 }
+
+                if (!user.phoneNumber.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Linked Phone", fontSize = 12.sp, color = JarvisTextSecondary)
+                        Text(
+                            text = user.phoneNumber,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = JarvisCyan
+                        )
+                    }
+                }
             }
         }
 

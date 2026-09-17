@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.example.jarvis.model.ActivityLog
 import com.example.jarvis.model.ActivityType
 import com.example.jarvis.model.ChatMessage
+import com.example.jarvis.model.ExecutionStatus
 import com.example.jarvis.model.JarvisTask
 import com.example.jarvis.model.JarvisTimer
 import com.example.jarvis.model.MemoryItem
@@ -14,6 +15,7 @@ import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.model.VisionScan
 import com.example.jarvis.security.EncryptedStorage
 import com.example.jarvis.security.SensitiveDataFilter
+import com.example.jarvis.storage.db.ActivityLogEntity
 import com.example.jarvis.storage.db.JarvisDatabase
 import com.example.jarvis.storage.db.MemoryEntity
 import com.example.jarvis.storage.db.TaskEntity

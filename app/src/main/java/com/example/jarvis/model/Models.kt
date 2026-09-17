@@ -67,12 +67,21 @@ enum class ActivityType {
     SYSTEM_EVENT
 }
 
+enum class ExecutionStatus {
+    PENDING,
+    SUCCESS,
+    FAILED,
+    BLOCKED
+}
+
 data class ActivityLog(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val detail: String,
     val type: ActivityType,
     val riskLevel: RiskLevel = RiskLevel.SAFE,
+    val status: ExecutionStatus = ExecutionStatus.SUCCESS,
+    val userId: String = "local_operator",
     val timestamp: Long = System.currentTimeMillis()
 )
 

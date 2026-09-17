@@ -135,15 +135,47 @@ interface NotificationDao {
     suspend fun clearAllNotifications()
 }
 
+@Entity(tableName = "activity_logs")
+data class ActivityLogEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val detail: String,
+    val type: String,
+    val riskLevel: String = "SAFE",
+    val status: String = "SUCCESS",
+    val userId: String = "local_operator",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Dao
+interface ActivityLogDao {
+    @Query("SELECT * FROM activity_logs WHERE userId = :userId ORDER BY timestamp DESC LIMIT 200")
+    fun getLogsForUser(userId: String): Flow<List<ActivityLogEntity>>
+
+    @Query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 200")
+    fun getAllLogs(): Flow<List<ActivityLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLog(log: ActivityLogEntity)
+
+    @Query("DELETE FROM activity_logs WHERE userId = :userId")
+    suspend fun clearLogsForUser(userId: String)
+
+    @Query("DELETE FROM activity_logs")
+    suspend fun clearAllLogs()
+}
+
 @Database(
-    entities = [MemoryEntity::class, TaskEntity::class, NotificationLogEntity::class],
-    version = 1,
+    entities = [MemoryEntity::class, TaskEntity::class, NotificationLogEntity::class, ActivityLogEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class JarvisDatabase : RoomDatabase() {
     abstract fun memoryDao(): MemoryDao
     abstract fun taskDao(): TaskDao
     abstract fun notificationDao(): NotificationDao
+    abstract fun activityLogDao(): ActivityLogDao
 
     companion object {
         @Volatile

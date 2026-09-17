@@ -1,5 +1,6 @@
 package com.example.jarvis.ui.screens
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,7 +31,9 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -53,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -70,12 +74,18 @@ import com.example.jarvis.ui.theme.JarvisBorder
 import com.example.jarvis.ui.theme.JarvisBorderSubtle
 import com.example.jarvis.ui.theme.JarvisCyan
 import com.example.jarvis.ui.theme.JarvisElectricBlue
+import com.example.jarvis.ui.theme.JarvisGreen
 import com.example.jarvis.ui.theme.JarvisRed
 import com.example.jarvis.ui.theme.JarvisSurface
 import com.example.jarvis.ui.theme.JarvisSurfaceElevated
 import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
+
+enum class LoginAccessMode {
+    EMAIL,
+    PHONE_OTP
+}
 
 @Composable
 fun LoginScreen(
@@ -84,11 +94,22 @@ fun LoginScreen(
     onNavigateToForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    var accessMode by remember { mutableStateOf(LoginAccessMode.EMAIL) }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    var phoneNumber by remember { mutableStateOf("") }
+    var otpCode by remember { mutableStateOf("") }
+    var verificationId by remember { mutableStateOf<String?>(null) }
+    var isOtpSent by remember { mutableStateOf(false) }
+
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
 
     Box(
@@ -194,186 +215,484 @@ fun LoginScreen(
                 }
             }
 
-            // Email Input
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                    errorMessage = null
-                },
-                label = { Text("Operator Email", color = JarvisTextSecondary) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Email,
-                        contentDescription = null,
-                        tint = JarvisCyan
-                    )
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = JarvisCyan,
-                    unfocusedBorderColor = JarvisBorderSubtle,
-                    focusedTextColor = JarvisTextPrimary,
-                    unfocusedTextColor = JarvisTextPrimary,
-                    cursorColor = JarvisCyan,
-                    focusedContainerColor = JarvisSurface,
-                    unfocusedContainerColor = JarvisSurface
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("login_email_input")
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Password Input
-            OutlinedTextField(
-                value = password,
-                onValueChange = {
-                    password = it
-                    errorMessage = null
-                },
-                label = { Text("Security Key / Password", color = JarvisTextSecondary) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = JarvisCyan
-                    )
-                },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide" else "Show",
-                            tint = JarvisTextDim
+            // Success Display
+            AnimatedVisibility(visible = successMessage != null) {
+                successMessage?.let { msg ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(JarvisGreen.copy(alpha = 0.15f))
+                            .border(1.dp, JarvisGreen.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = msg,
+                            color = JarvisGreen,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
-                },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (email.isNotBlank() && password.isNotBlank()) {
-                            isLoading = true
-                            authManager.signInWithEmail(
-                                email = email,
-                                pass = password,
-                                onSuccess = {
-                                    isLoading = false
-                                    onLoginSuccess()
-                                },
-                                onError = { err ->
-                                    isLoading = false
-                                    errorMessage = err
-                                }
-                            )
-                        }
-                    }
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = JarvisCyan,
-                    unfocusedBorderColor = JarvisBorderSubtle,
-                    focusedTextColor = JarvisTextPrimary,
-                    unfocusedTextColor = JarvisTextPrimary,
-                    cursorColor = JarvisCyan,
-                    focusedContainerColor = JarvisSurface,
-                    unfocusedContainerColor = JarvisSurface
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("login_password_input")
-            )
-
-            // Forgot Password
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = onNavigateToForgotPassword,
-                    modifier = Modifier.testTag("forgot_password_button")
-                ) {
-                    Text(
-                        text = "Reset Access Key?",
-                        color = JarvisCyan.copy(alpha = 0.7f),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Login Button
-            Button(
-                onClick = {
-                    focusManager.clearFocus()
-                    isLoading = true
-                    errorMessage = null
-                    authManager.signInWithEmail(
-                        email = email,
-                        pass = password,
-                        onSuccess = {
-                            isLoading = false
-                            onLoginSuccess()
-                        },
-                        onError = { err ->
-                            isLoading = false
-                            errorMessage = err
-                        }
-                    )
-                },
-                enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = JarvisCyan,
-                    contentColor = JarvisBackground,
-                    disabledContainerColor = JarvisCyan.copy(alpha = 0.2f),
-                    disabledContentColor = JarvisTextDim
-                ),
-                shape = RoundedCornerShape(12.dp),
+            // Mode Selector: EMAIL vs PHONE OTP
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .testTag("login_submit_button")
+                    .padding(bottom = 16.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(JarvisSurface)
+                    .border(1.dp, JarvisBorderSubtle, RoundedCornerShape(10.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = JarvisBackground,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (accessMode == LoginAccessMode.EMAIL) JarvisCyan.copy(alpha = 0.2f) else Color.Transparent)
+                        .border(
+                            width = if (accessMode == LoginAccessMode.EMAIL) 1.dp else 0.dp,
+                            color = if (accessMode == LoginAccessMode.EMAIL) JarvisCyan else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButton(
+                        onClick = {
+                            accessMode = LoginAccessMode.EMAIL
+                            errorMessage = null
+                            successMessage = null
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag("select_email_mode")
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = if (accessMode == LoginAccessMode.EMAIL) JarvisCyan else JarvisTextDim, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("EMAIL KEY", fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (accessMode == LoginAccessMode.EMAIL) JarvisCyan else JarvisTextDim)
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (accessMode == LoginAccessMode.PHONE_OTP) JarvisCyan.copy(alpha = 0.2f) else Color.Transparent)
+                        .border(
+                            width = if (accessMode == LoginAccessMode.PHONE_OTP) 1.dp else 0.dp,
+                            color = if (accessMode == LoginAccessMode.PHONE_OTP) JarvisCyan else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButton(
+                        onClick = {
+                            accessMode = LoginAccessMode.PHONE_OTP
+                            errorMessage = null
+                            successMessage = null
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag("select_phone_mode")
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Phone, contentDescription = null, tint = if (accessMode == LoginAccessMode.PHONE_OTP) JarvisCyan else JarvisTextDim, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("PHONE OTP", fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (accessMode == LoginAccessMode.PHONE_OTP) JarvisCyan else JarvisTextDim)
+                        }
+                    }
+                }
+            }
+
+            if (accessMode == LoginAccessMode.EMAIL) {
+                // Email Input
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        errorMessage = null
+                    },
+                    label = { Text("Operator Email", color = JarvisTextSecondary) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = JarvisCyan
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisCyan,
+                        unfocusedBorderColor = JarvisBorderSubtle,
+                        focusedTextColor = JarvisTextPrimary,
+                        unfocusedTextColor = JarvisTextPrimary,
+                        cursorColor = JarvisCyan,
+                        focusedContainerColor = JarvisSurface,
+                        unfocusedContainerColor = JarvisSurface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("login_email_input")
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Password Input
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        errorMessage = null
+                    },
+                    label = { Text("Security Key / Password", color = JarvisTextSecondary) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = JarvisCyan
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide" else "Show",
+                                tint = JarvisTextDim
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            if (email.isNotBlank() && password.isNotBlank()) {
+                                isLoading = true
+                                authManager.signInWithEmail(
+                                    email = email,
+                                    pass = password,
+                                    onSuccess = {
+                                        isLoading = false
+                                        onLoginSuccess()
+                                    },
+                                    onError = { err ->
+                                        isLoading = false
+                                        errorMessage = err
+                                    }
+                                )
+                            }
+                        }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisCyan,
+                        unfocusedBorderColor = JarvisBorderSubtle,
+                        focusedTextColor = JarvisTextPrimary,
+                        unfocusedTextColor = JarvisTextPrimary,
+                        cursorColor = JarvisCyan,
+                        focusedContainerColor = JarvisSurface,
+                        unfocusedContainerColor = JarvisSurface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("login_password_input")
+                )
+
+                // Forgot Password
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = onNavigateToForgotPassword,
+                        modifier = Modifier.testTag("forgot_password_button")
                     ) {
                         Text(
-                            text = "AUTHENTICATE",
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 1.sp
+                            text = "Reset Access Key?",
+                            color = JarvisCyan.copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Login Button
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        isLoading = true
+                        errorMessage = null
+                        authManager.signInWithEmail(
+                            email = email,
+                            pass = password,
+                            onSuccess = {
+                                isLoading = false
+                                onLoginSuccess()
+                            },
+                            onError = { err ->
+                                isLoading = false
+                                errorMessage = err
+                            }
+                        )
+                    },
+                    enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = JarvisCyan,
+                        contentColor = JarvisBackground,
+                        disabledContainerColor = JarvisCyan.copy(alpha = 0.2f),
+                        disabledContentColor = JarvisTextDim
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("login_submit_button")
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = JarvisBackground,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "AUTHENTICATE",
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                // PHONE OTP FLOW
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = {
+                        phoneNumber = it
+                        errorMessage = null
+                    },
+                    label = { Text("Phone Number (+CountryCode)", color = JarvisTextSecondary) },
+                    placeholder = { Text("+15550199 or +919876543210", color = JarvisTextDim) },
+                    leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.Default.Phone,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            tint = JarvisCyan
                         )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = if (isOtpSent) ImeAction.Next else ImeAction.Done
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisCyan,
+                        unfocusedBorderColor = JarvisBorderSubtle,
+                        focusedTextColor = JarvisTextPrimary,
+                        unfocusedTextColor = JarvisTextPrimary,
+                        cursorColor = JarvisCyan,
+                        focusedContainerColor = JarvisSurface,
+                        unfocusedContainerColor = JarvisSurface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("phone_number_input")
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                if (!isOtpSent) {
+                    // Send OTP Button
+                    Button(
+                        onClick = {
+                            if (activity != null) {
+                                focusManager.clearFocus()
+                                isLoading = true
+                                errorMessage = null
+                                authManager.sendPhoneOtp(
+                                    activity = activity,
+                                    phoneNumber = phoneNumber,
+                                    onCodeSent = { vId ->
+                                        isLoading = false
+                                        verificationId = vId
+                                        isOtpSent = true
+                                        successMessage = "6-digit OTP dispatched to $phoneNumber via SMS."
+                                    },
+                                    onAutoVerified = {
+                                        isLoading = false
+                                        onLoginSuccess()
+                                    },
+                                    onError = { err ->
+                                        isLoading = false
+                                        errorMessage = err
+                                    }
+                                )
+                            } else {
+                                errorMessage = "Activity context is unavailable for SMS dispatch."
+                            }
+                        },
+                        enabled = !isLoading && phoneNumber.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JarvisCyan,
+                            contentColor = JarvisBackground,
+                            disabledContainerColor = JarvisCyan.copy(alpha = 0.2f),
+                            disabledContentColor = JarvisTextDim
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("send_otp_button")
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = JarvisBackground,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "DISPATCH SMS OTP",
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Enter 6-digit OTP
+                    OutlinedTextField(
+                        value = otpCode,
+                        onValueChange = {
+                            if (it.length <= 6) otpCode = it
+                            errorMessage = null
+                        },
+                        label = { Text("6-Digit Verification Code", color = JarvisTextSecondary) },
+                        placeholder = { Text("123456", color = JarvisTextDim) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = JarvisCyan
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Done
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = JarvisCyan,
+                            unfocusedBorderColor = JarvisBorderSubtle,
+                            focusedTextColor = JarvisTextPrimary,
+                            unfocusedTextColor = JarvisTextPrimary,
+                            cursorColor = JarvisCyan,
+                            focusedContainerColor = JarvisSurface,
+                            unfocusedContainerColor = JarvisSurface
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("otp_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            val vId = verificationId
+                            if (vId != null) {
+                                focusManager.clearFocus()
+                                isLoading = true
+                                errorMessage = null
+                                authManager.verifyPhoneOtp(
+                                    verificationId = vId,
+                                    otpCode = otpCode,
+                                    onSuccess = {
+                                        isLoading = false
+                                        onLoginSuccess()
+                                    },
+                                    onError = { err ->
+                                        isLoading = false
+                                        errorMessage = err
+                                    }
+                                )
+                            }
+                        },
+                        enabled = !isLoading && otpCode.length >= 6,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JarvisCyan,
+                            contentColor = JarvisBackground,
+                            disabledContainerColor = JarvisCyan.copy(alpha = 0.2f),
+                            disabledContentColor = JarvisTextDim
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("verify_otp_button")
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = JarvisBackground,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "VERIFY & ENTER TERMINAL",
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextButton(
+                        onClick = {
+                            isOtpSent = false
+                            otpCode = ""
+                        },
+                        modifier = Modifier.testTag("resend_otp_button")
+                    ) {
+                        Text("Re-enter phone number or resend code", color = JarvisCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }

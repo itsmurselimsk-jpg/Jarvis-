@@ -1,9 +1,15 @@
 package com.example.jarvis.auth
 
+import android.app.Activity
 import android.content.Context
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseException
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.concurrent.TimeUnit
 
 data class JarvisUser(
     val uid: String,
@@ -19,7 +26,8 @@ data class JarvisUser(
     val displayName: String,
     val isEmailVerified: Boolean,
     val isAnonymous: Boolean = false,
-    val providerId: String = "firebase"
+    val providerId: String = "firebase",
+    val phoneNumber: String? = null
 )
 
 sealed class AuthState {
@@ -81,13 +89,17 @@ class AuthManager(private val context: Context) {
     }
 
     private fun mapFirebaseUser(user: FirebaseUser): JarvisUser {
+        val phone = user.phoneNumber
+        val email = user.email ?: if (!phone.isNullOrBlank()) "$phone@jarvis.local" else "user@jarvis.ai"
+        val name = user.displayName ?: if (!phone.isNullOrBlank()) phone else email.substringBefore("@")
         return JarvisUser(
             uid = user.uid,
-            email = user.email ?: "user@jarvis.ai",
-            displayName = user.displayName ?: user.email?.substringBefore("@") ?: "Commander",
-            isEmailVerified = user.isEmailVerified,
+            email = email,
+            displayName = name,
+            isEmailVerified = user.isEmailVerified || !phone.isNullOrBlank(),
             isAnonymous = user.isAnonymous,
-            providerId = user.providerId
+            providerId = user.providerId,
+            phoneNumber = phone
         )
     }
 
@@ -96,15 +108,17 @@ class AuthManager(private val context: Context) {
         val uid = prefs.getString("user_uid", null)
         val email = prefs.getString("user_email", null)
         val name = prefs.getString("user_name", null)
+        val phone = prefs.getString("user_phone", null)
         val isGuest = prefs.getBoolean("is_guest", false)
 
-        if (uid != null && email != null) {
+        if (uid != null && (email != null || phone != null)) {
             val user = JarvisUser(
                 uid = uid,
-                email = email,
-                displayName = name ?: email.substringBefore("@"),
+                email = email ?: "$phone@jarvis.local",
+                displayName = name ?: (phone ?: email?.substringBefore("@") ?: "Commander"),
                 isEmailVerified = !isGuest,
-                isAnonymous = isGuest
+                isAnonymous = isGuest,
+                phoneNumber = phone
             )
             _authState.value = AuthState.Authenticated(user)
         } else {
@@ -118,6 +132,7 @@ class AuthManager(private val context: Context) {
             .putString("user_uid", user.uid)
             .putString("user_email", user.email)
             .putString("user_name", user.displayName)
+            .putString("user_phone", user.phoneNumber)
             .putBoolean("is_guest", user.isAnonymous)
             .apply()
     }
@@ -128,6 +143,121 @@ class AuthManager(private val context: Context) {
     }
 
     fun isFirebaseConfigured(): Boolean = isFirebaseAvailable
+
+    fun signInWithCredential(
+        credential: AuthCredential,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val auth = firebaseAuth
+        if (auth != null && isFirebaseAvailable) {
+            scope.launch {
+                try {
+                    val result = auth.signInWithCredential(credential).await()
+                    val user = result.user
+                    if (user != null) {
+                        val jarvisUser = mapFirebaseUser(user)
+                        saveLocalSession(jarvisUser)
+                        _authState.value = AuthState.Authenticated(jarvisUser)
+                        onSuccess()
+                    } else {
+                        onError("Google credential authentication returned empty user profile.")
+                    }
+                } catch (e: Exception) {
+                    onError(e.localizedMessage ?: "Google authentication failed.")
+                }
+            }
+        } else {
+            onError("Firebase cloud services not configured. Please add google-services.json from Firebase Console.")
+        }
+    }
+
+    fun sendPhoneOtp(
+        activity: Activity,
+        phoneNumber: String,
+        onCodeSent: (verificationId: String) -> Unit,
+        onAutoVerified: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cleanPhone = phoneNumber.trim()
+        if (cleanPhone.isBlank()) {
+            onError("Please specify a valid phone number with country code (e.g., +15550199 or +919876543210).")
+            return
+        }
+
+        val auth = firebaseAuth
+        if (auth != null && isFirebaseAvailable) {
+            val options = PhoneAuthOptions.newBuilder(auth)
+                .setPhoneNumber(cleanPhone)
+                .setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(activity)
+                .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                        // Instant verification or auto-retrieval
+                        signInWithPhoneCredential(credential, onAutoVerified, onError)
+                    }
+
+                    override fun onVerificationFailed(e: FirebaseException) {
+                        onError(e.localizedMessage ?: "SMS verification dispatch failed.")
+                    }
+
+                    override fun onCodeSent(
+                        verificationId: String,
+                        token: PhoneAuthProvider.ForceResendingToken
+                    ) {
+                        onCodeSent(verificationId)
+                    }
+                })
+                .build()
+            PhoneAuthProvider.verifyPhoneNumber(options)
+        } else {
+            onError("Firebase Authentication requires google-services.json and Phone Auth enabled in the Firebase Console. Add google-services.json to enable live SMS OTP.")
+        }
+    }
+
+    fun verifyPhoneOtp(
+        verificationId: String,
+        otpCode: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cleanCode = otpCode.trim()
+        if (cleanCode.length < 6) {
+            onError("Please enter the complete 6-digit OTP security code.")
+            return
+        }
+
+        val credential = PhoneAuthProvider.getCredential(verificationId, cleanCode)
+        signInWithPhoneCredential(credential, onSuccess, onError)
+    }
+
+    private fun signInWithPhoneCredential(
+        credential: PhoneAuthCredential,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val auth = firebaseAuth
+        if (auth != null && isFirebaseAvailable) {
+            scope.launch {
+                try {
+                    val result = auth.signInWithCredential(credential).await()
+                    val user = result.user
+                    if (user != null) {
+                        val jarvisUser = mapFirebaseUser(user)
+                        saveLocalSession(jarvisUser)
+                        _authState.value = AuthState.Authenticated(jarvisUser)
+                        onSuccess()
+                    } else {
+                        onError("OTP verified but user account could not be initialized.")
+                    }
+                } catch (e: Exception) {
+                    onError(e.localizedMessage ?: "OTP verification failed. Please check the code.")
+                }
+            }
+        } else {
+            onError("Firebase cloud service unavailable. Please configure google-services.json.")
+        }
+    }
 
     fun signInWithEmail(
         email: String,

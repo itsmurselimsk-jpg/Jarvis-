@@ -84,13 +84,16 @@ object SensitiveDataFilter {
     private val PASSWORD_KEYWORD_REGEX = Regex("""(?i)\b(password|passcode|secret pin|cvv|private key)\s*[:=]\s*(\S+)""")
     private val API_KEY_REGEX = Regex("""\b(sk-[a-zA-Z0-9_-]{16,}|AIzaSy[a-zA-Z0-9_-]{20,})\b""")
     private val BEARER_TOKEN_REGEX = Regex("""(?i)\b(bearer\s+[a-zA-Z0-9\._\-]{20,})\b""")
+    private val OTP_REGEX = Regex("""(?i)\b(?:otp|verification\s*code|security\s*code|one-time\s*password)\s*[:=]?\s*(\d{4,8})\b""")
+    private val OTP_STANDALONE_REGEX = Regex("""(?i)\b(\d{6})\b""")
 
     fun containsSensitiveData(text: String): Boolean {
         return CREDIT_CARD_REGEX.containsMatchIn(text) ||
                 SSN_REGEX.containsMatchIn(text) ||
                 PASSWORD_KEYWORD_REGEX.containsMatchIn(text) ||
                 API_KEY_REGEX.containsMatchIn(text) ||
-                BEARER_TOKEN_REGEX.containsMatchIn(text)
+                BEARER_TOKEN_REGEX.containsMatchIn(text) ||
+                OTP_REGEX.containsMatchIn(text)
     }
 
     fun sanitizeForDisplay(text: String): String {
@@ -103,6 +106,7 @@ object SensitiveDataFilter {
         sanitized = PASSWORD_KEYWORD_REGEX.replace(sanitized) { match ->
             "${match.groupValues[1]}: [PROTECTED_CREDENTIAL]"
         }
+        sanitized = OTP_REGEX.replace(sanitized, "OTP: [PROTECTED_OTP]")
         sanitized = API_KEY_REGEX.replace(sanitized, "[PROTECTED_API_KEY]")
         sanitized = BEARER_TOKEN_REGEX.replace(sanitized, "Bearer [PROTECTED_TOKEN]")
         return sanitized
