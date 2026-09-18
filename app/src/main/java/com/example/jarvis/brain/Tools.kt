@@ -1175,4 +1175,228 @@ class VisionOcrTool : Tool {
     }
 }
 
+// 28. DOCUMENT INTELLIGENCE TOOL
+class DocumentIntelligenceTool : Tool {
+    override val name = "DocumentIntelligence"
+    override val description = "Inspects loaded documents (TXT, CSV, JSON, XML, Markdown, PDF), analyzes structure, extracts entities, tables, dates, and amounts safely without code execution"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val doc = context.activeDocument
+        if (doc == null) {
+            return ToolResult(
+                success = true,
+                output = "No document is currently loaded in JARVIS. Please select or supply a TXT, CSV, JSON, XML, Markdown, or PDF document to analyze.",
+                verified = true
+            )
+        }
+
+        val summary = context.activeDocumentSummary ?: com.example.jarvis.document.DocumentIntelligenceEngine.analyze(doc)
+        val analysis = context.activeFileAnalysis ?: com.example.jarvis.document.AdvancedFileAnalyzer.analyze(doc)
+        val lower = input.lowercase(Locale.ROOT)
+
+        context.repository.logActivity(
+            title = "Document Analyzed",
+            detail = "${doc.fileName} (${doc.documentType}, ${doc.sizeBytes} bytes)",
+            type = ActivityType.TOOL_EXECUTION
+        )
+
+        val outputText = when {
+            lower.contains("summary") || lower.contains("summarize") || lower.contains("সংক্ষেপ") -> {
+                val sb = StringBuilder()
+                sb.appendLine("DOCUMENT SUMMARY: ${doc.fileName}")
+                sb.appendLine("Type: ${doc.documentType} | Size: ${doc.sizeBytes} bytes | Sections: ${doc.sections.size}")
+                sb.appendLine("\n${summary.summaryText}")
+                if (summary.keyPoints.isNotEmpty()) {
+                    sb.appendLine("\nKey Highlights:")
+                    summary.keyPoints.forEach { sb.appendLine("• $it") }
+                }
+                sb.toString().trimEnd()
+            }
+            lower.contains("entity") || lower.contains("entities") || lower.contains("people") || lower.contains("person") || lower.contains("company") || lower.contains("organization") -> {
+                val sb = StringBuilder()
+                sb.appendLine("DOCUMENT ENTITIES: ${doc.fileName}")
+                if (summary.extractedData.people.isNotEmpty()) sb.appendLine("• People: ${summary.extractedData.people.joinToString { it.name }}")
+                if (summary.extractedData.organizations.isNotEmpty()) sb.appendLine("• Organizations: ${summary.extractedData.organizations.joinToString { it.name }}")
+                if (summary.extractedData.locations.isNotEmpty()) sb.appendLine("• Locations: ${summary.extractedData.locations.joinToString { it.name }}")
+                if (summary.extractedData.phoneNumbers.isNotEmpty()) sb.appendLine("• Phones: ${summary.extractedData.phoneNumbers.joinToString { it.phoneNumber }}")
+                if (summary.extractedData.emails.isNotEmpty()) sb.appendLine("• Emails: ${summary.extractedData.emails.joinToString { it.email }}")
+                if (summary.extractedData.urls.isNotEmpty()) sb.appendLine("• URLs: ${summary.extractedData.urls.joinToString { it.url }}")
+                if (summary.extractedData.identifiers.isNotEmpty()) sb.appendLine("• IDs: ${summary.extractedData.identifiers.joinToString { it.id }}")
+                if (sb.lines().size <= 2) sb.appendLine("No specific named entities or contact details were identified.")
+                sb.toString().trimEnd()
+            }
+            lower.contains("stat") || lower.contains("stats") || lower.contains("statistic") || lower.contains("statistics") ||
+                    lower.contains("average") || lower.contains("avg") || lower.contains("min") ||
+                    lower.contains("max") || Regex("""\bsum\b""").containsMatchIn(lower) || Regex("""\bnumbers?\b""").containsMatchIn(lower) -> {
+                val tab = analysis.tabularData
+                val sb = StringBuilder()
+                sb.appendLine("STATISTICAL ANALYSIS: ${doc.fileName}")
+                var hasNumeric = false
+                if (tab != null) {
+                    val numericCols = tab.columns.filter { it.numericStats != null }
+                    if (numericCols.isNotEmpty()) {
+                        hasNumeric = true
+                        sb.appendLine("Numeric Column Metrics:")
+                        numericCols.forEach { col ->
+                            val s = col.numericStats!!
+                            sb.appendLine("  • ${col.name} (N=${s.count}):")
+                            sb.appendLine("     Min: ${s.min} | Max: ${s.max}")
+                            sb.appendLine("     Average: ${String.format(Locale.ROOT, "%.2f", s.average)} | Sum: ${s.sum}")
+                        }
+                    }
+                }
+                if (summary.importantAmounts.isNotEmpty()) {
+                    hasNumeric = true
+                    sb.appendLine("Extracted Financial Values: ${summary.importantAmounts.joinToString { "${it.currencySymbol}${it.amount}" }}")
+                }
+                if (!hasNumeric) {
+                    sb.appendLine("No mathematical or financial numeric columns were identified in this document.")
+                }
+                sb.toString().trimEnd()
+            }
+            lower.contains("date") || lower.contains("time") || lower.contains("amount") || lower.contains("price") || lower.contains("currency") || lower.contains("money") -> {
+                val sb = StringBuilder()
+                sb.appendLine("TEMPORAL & FINANCIAL METRICS: ${doc.fileName}")
+                if (summary.importantDates.isNotEmpty()) sb.appendLine("• Dates: ${summary.importantDates.joinToString { it.normalizedIso ?: it.rawText }}")
+                if (summary.extractedData.times.isNotEmpty()) sb.appendLine("• Times: ${summary.extractedData.times.joinToString { it.normalizedTime ?: it.rawText }}")
+                if (summary.importantAmounts.isNotEmpty()) sb.appendLine("• Financial Amounts: ${summary.importantAmounts.joinToString { "${it.currencySymbol}${it.amount}" }}")
+                if (summary.extractedData.percentages.isNotEmpty()) sb.appendLine("• Percentages: ${summary.extractedData.percentages.joinToString { "${it.value}%" }}")
+                if (sb.lines().size <= 2) sb.appendLine("No specific dates or financial figures were identified.")
+                sb.toString().trimEnd()
+            }
+            lower.contains("sensitive") || lower.contains("security") || lower.contains("privacy") || lower.contains("otp") -> {
+                val isSensitive = summary.containsSensitiveData || analysis.containsSensitiveData
+                val types = (summary.sensitiveDataTypes + analysis.sensitiveDataTypes).distinct()
+                if (isSensitive) {
+                    "SECURITY NOTICE for ${doc.fileName}:\n" +
+                    "Sensitive elements detected: ${types.joinToString()}.\n" +
+                    "Per privacy policy, sensitive tokens are masked during analysis and will NOT be committed to long-term memory."
+                } else {
+                    "SECURITY AUDIT for ${doc.fileName}:\nNo credentials, card numbers, or sensitive tokens were detected."
+                }
+            }
+            lower.contains("compare") || lower.contains("difference") || lower.contains("changed") || lower.contains("diff") -> {
+                val prev = context.previousDocument
+                if (prev != null) {
+                    val comp = com.example.jarvis.document.FileComparisonEngine.compare(
+                        docA = prev,
+                        docB = doc,
+                        analysisA = context.previousFileAnalysis ?: com.example.jarvis.document.AdvancedFileAnalyzer.analyze(prev),
+                        analysisB = analysis
+                    )
+                    val sb = StringBuilder()
+                    sb.appendLine("FILE COMPARISON REPORT:")
+                    sb.appendLine("• Base File: ${comp.fileA}")
+                    sb.appendLine("• Target File: ${comp.fileB}")
+                    sb.appendLine("• Identical: ${if (comp.areIdentical) "YES (Exact match)" else "NO"}")
+                    sb.appendLine("• Size Delta: ${if (comp.sizeDifferenceBytes >= 0) "+${comp.sizeDifferenceBytes}" else "${comp.sizeDifferenceBytes}"} bytes")
+                    if (comp.structuralDifferences.isNotEmpty()) {
+                        sb.appendLine("\nStructural Changes:")
+                        comp.structuralDifferences.forEach { sb.appendLine("  - $it") }
+                    }
+                    if (comp.addedKeys.isNotEmpty()) sb.appendLine("• Added Keys/Columns: ${comp.addedKeys.joinToString(", ")}")
+                    if (comp.removedKeys.isNotEmpty()) sb.appendLine("• Removed Keys/Columns: ${comp.removedKeys.joinToString(", ")}")
+                    if (comp.addedRowsCount > 0 || comp.removedRowsCount > 0) {
+                        sb.appendLine("• Row Delta: +${comp.addedRowsCount} added, -${comp.removedRowsCount} removed")
+                    }
+                    if (comp.changedSections.isNotEmpty()) {
+                        sb.appendLine("\nSection Differences:")
+                        comp.changedSections.forEach { sb.appendLine("  - $it") }
+                    }
+                    sb.toString().trimEnd()
+                } else {
+                    "FILE COMPARISON NOTICE: Only one document ('${doc.fileName}') is currently loaded. Load a second document to perform structural and content diff comparison."
+                }
+            }
+            lower.contains("row") || lower.contains("rows") || lower.contains("column") || lower.contains("columns") ||
+                    lower.contains("table") || lower.contains("tabular") || lower.contains("missing") || lower.contains("duplicate") -> {
+                val tab = analysis.tabularData
+                if (tab != null) {
+                    val sb = StringBuilder()
+                    sb.appendLine("TABULAR DATA AUDIT: ${doc.fileName}")
+                    sb.appendLine("• Rows: ${tab.rowCount} | Columns: ${tab.columnCount}")
+                    sb.appendLine("• Total Missing Values: ${tab.totalMissingValues}")
+                    sb.appendLine("• Duplicate Rows: ${tab.duplicateRowCount}${if (tab.duplicateRowIndices.isNotEmpty()) " (indices: ${tab.duplicateRowIndices.take(5).joinToString()})" else ""}")
+                    sb.appendLine("\nColumn Breakdown:")
+                    tab.columns.forEach { col ->
+                        val missingNote = if (col.missingCount > 0) " (${col.missingCount} missing)" else ""
+                        sb.appendLine("  - [Col ${col.index + 1}] ${col.name}: Type=${col.inferredType}, Non-null=${col.nonNullCount}$missingNote, Unique=${col.uniqueCount}")
+                    }
+                    sb.toString().trimEnd()
+                } else {
+                    "TABULAR METRICS: Document '${doc.fileName}' is ${doc.documentType} format, containing ${doc.sections.size} section(s) and ${analysis.structureInfo.lineCount} lines."
+                }
+            }
+            lower.contains("structure") || lower.contains("hierarchy") || lower.contains("json") || lower.contains("xml") ||
+                    lower.contains("schema") || lower.contains("depth") || lower.contains("keys") -> {
+                val struct = analysis.structuredData
+                if (struct != null) {
+                    val sb = StringBuilder()
+                    sb.appendLine("STRUCTURED DATA HIERARCHY: ${doc.fileName}")
+                    sb.appendLine("• Root/Container: ${struct.topLevelType}")
+                    sb.appendLine("• Max Nesting Depth: ${struct.maxDepth}")
+                    sb.appendLine("• Total Keys: ${struct.totalKeyCount}")
+                    sb.appendLine("• Total Elements: ${struct.totalElementCount}")
+                    if (struct.arrayCount > 0) sb.appendLine("• Array Structures: ${struct.arrayCount}")
+                    if (struct.topLevelKeys.isNotEmpty()) {
+                        sb.appendLine("• Top-Level Keys: ${struct.topLevelKeys.joinToString(", ")}")
+                    }
+                    if (struct.keyPaths.isNotEmpty()) {
+                        sb.appendLine("• Key Paths (Sample): ${struct.keyPaths.take(6).joinToString(", ")}")
+                    }
+                    sb.toString().trimEnd()
+                } else {
+                    val sb = StringBuilder()
+                    sb.appendLine("DOCUMENT STRUCTURE: ${doc.fileName}")
+                    sb.appendLine("• Type: ${doc.documentType}")
+                    sb.appendLine("• Lines: ${analysis.structureInfo.lineCount}")
+                    sb.appendLine("• Characters: ${analysis.structureInfo.charCount}")
+                    sb.appendLine("• Sections: ${analysis.structureInfo.sectionCount}")
+                    sb.toString().trimEnd()
+                }
+            }
+            lower.contains("email") || lower.contains("emails") || lower.contains("contact") || lower.contains("url") || lower.contains("phone") -> {
+                val sb = StringBuilder()
+                sb.appendLine("DOCUMENT CONTACT DETAILS: ${doc.fileName}")
+                if (summary.extractedData.emails.isNotEmpty()) sb.appendLine("• Emails: ${summary.extractedData.emails.joinToString { it.email }}")
+                if (summary.extractedData.phoneNumbers.isNotEmpty()) sb.appendLine("• Phones: ${summary.extractedData.phoneNumbers.joinToString { it.phoneNumber }}")
+                if (summary.extractedData.urls.isNotEmpty()) sb.appendLine("• URLs: ${summary.extractedData.urls.joinToString { it.url }}")
+                if (summary.extractedData.emails.isEmpty() && summary.extractedData.phoneNumbers.isEmpty() && summary.extractedData.urls.isEmpty()) {
+                    sb.appendLine("No contact emails, phone numbers, or URLs were detected in this document.")
+                }
+                sb.toString().trimEnd()
+            }
+            else -> {
+                val sb = StringBuilder()
+                sb.appendLine("DOCUMENT INTELLIGENCE: ${doc.fileName}")
+                sb.appendLine("Type: ${doc.documentType} | Size: ${doc.sizeBytes} bytes | Status: ${doc.extractionStatus}")
+                sb.appendLine("Sections / Rows: ${doc.pageOrSectionCount} | Characters: ${doc.metadata.charCount}")
+                if (doc.metadata.columnNames.isNotEmpty()) {
+                    sb.appendLine("Columns: ${doc.metadata.columnNames.joinToString(", ")}")
+                }
+                sb.appendLine("\n${summary.summaryText}")
+                if (summary.keyPoints.isNotEmpty()) {
+                    sb.appendLine("\nKey Takeaways:")
+                    summary.keyPoints.take(4).forEach { sb.appendLine("• $it") }
+                }
+                sb.toString().trimEnd()
+            }
+        }
+
+        return ToolResult(
+            success = true,
+            output = outputText,
+            verified = true,
+            metadata = mapOf(
+                "fileName" to doc.fileName,
+                "documentType" to doc.documentType.name,
+                "extractionStatus" to doc.extractionStatus.name
+            )
+        )
+    }
+}
+
+
 

@@ -1,12 +1,22 @@
 package com.example.jarvis.brain
 
 import com.example.jarvis.bridge.AndroidBridge
+import com.example.jarvis.extraction.ExtractedData
+import com.example.jarvis.extraction.InformationExtractionEngine
 import com.example.jarvis.model.ActivityType
 import com.example.jarvis.model.ChatMessage
 import com.example.jarvis.model.MessageSender
 import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.model.SafetyRequest
 import com.example.jarvis.provider.AIProvider
+import com.example.jarvis.provider.LocalNeuralBrainProvider
+import com.example.jarvis.recovery.ErrorCategory
+import com.example.jarvis.recovery.ErrorClassifier
+import com.example.jarvis.recovery.RecoveryState
+import com.example.jarvis.recovery.RecoveryStatus
+import com.example.jarvis.recovery.RetryPolicy
+import com.example.jarvis.recovery.ToolRecovery
+import com.example.jarvis.recovery.executeWithRetry
 import com.example.jarvis.safety.RiskAssessment
 import com.example.jarvis.safety.RiskEngine
 import com.example.jarvis.storage.JarvisRepository
@@ -44,6 +54,12 @@ class AgentBrain(
 
     private val _currentPlanExplanation = MutableStateFlow<String?>(null)
     val currentPlanExplanation: StateFlow<String?> = _currentPlanExplanation.asStateFlow()
+
+    private val _recoveryState = MutableStateFlow(RecoveryState())
+    val recoveryState: StateFlow<RecoveryState> = _recoveryState.asStateFlow()
+
+    private val _lastExtractedData = MutableStateFlow<ExtractedData?>(null)
+    val lastExtractedData: StateFlow<ExtractedData?> = _lastExtractedData.asStateFlow()
 
     // Short-term conversation context buffer: stores last N turns without sending entire history to provider
     private val conversationBuffer = mutableListOf<Pair<String, String>>()
@@ -84,10 +100,41 @@ class AgentBrain(
         registry.register(DiagnosticsTool())
         registry.register(UniversalSearchTool())
         registry.register(VisionOcrTool())
+        registry.register(DocumentIntelligenceTool())
+        registry.register(FileGenerationTool())
+    }
+
+    private val fileGenerationPipeline by lazy {
+        com.example.jarvis.generation.FileGenerationPipeline(bridge.getApplicationContext())
     }
 
     // Active vision / image OCR context if user recently scanned or inspected an image
     var activeVisionResult: com.example.jarvis.vision.VisionResult? = null
+
+    // Active document context if user recently loaded a file
+    var activeDocument: com.example.jarvis.document.DocumentModel? = null
+    var activeDocumentSummary: com.example.jarvis.document.DocumentSummary? = null
+    var activeFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null
+    var previousDocument: com.example.jarvis.document.DocumentModel? = null
+    var previousFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null
+
+    fun attachDocument(document: com.example.jarvis.document.DocumentModel) {
+        if (activeDocument != null && activeDocument !== document) {
+            previousDocument = activeDocument
+            previousFileAnalysis = activeFileAnalysis
+        }
+        activeDocument = document
+        activeDocumentSummary = com.example.jarvis.document.DocumentIntelligenceEngine.analyze(document)
+        activeFileAnalysis = com.example.jarvis.document.AdvancedFileAnalyzer.analyze(document)
+    }
+
+    fun clearActiveDocument() {
+        previousDocument = activeDocument
+        previousFileAnalysis = activeFileAnalysis
+        activeDocument = null
+        activeDocumentSummary = null
+        activeFileAnalysis = null
+    }
 
     /**
      * Canonical AgentLoop:
@@ -140,6 +187,23 @@ class AgentBrain(
                 }
             }
 
+            // Structured Information Extraction from User Input
+            val extractedInfo = InformationExtractionEngine.extractFromUserMessage(input)
+            _lastExtractedData.value = extractedInfo
+            if (!extractedInfo.isEmpty()) {
+                val entitySummaries = mutableListOf<String>()
+                if (extractedInfo.phoneNumbers.isNotEmpty()) entitySummaries.add("Phones: " + extractedInfo.phoneNumbers.joinToString { it.phoneNumber })
+                if (extractedInfo.emails.isNotEmpty()) entitySummaries.add("Emails: " + extractedInfo.emails.joinToString { it.email })
+                if (extractedInfo.urls.isNotEmpty()) entitySummaries.add("URLs: " + extractedInfo.urls.joinToString { it.url })
+                if (extractedInfo.dates.isNotEmpty()) entitySummaries.add("Dates: " + extractedInfo.dates.joinToString { it.normalizedIso ?: it.rawText })
+                if (extractedInfo.times.isNotEmpty()) entitySummaries.add("Times: " + extractedInfo.times.joinToString { it.normalizedTime ?: it.rawText })
+                if (extractedInfo.currencies.isNotEmpty()) entitySummaries.add("Amounts: " + extractedInfo.currencies.joinToString { "${it.currencySymbol}${it.amount}" })
+                if (extractedInfo.identifiers.isNotEmpty()) entitySummaries.add("IDs: " + extractedInfo.identifiers.joinToString { it.id })
+                if (entitySummaries.isNotEmpty()) {
+                    contextBuilder.appendLine("STRUCTURED INPUT ENTITIES: ${entitySummaries.joinToString(" | ")}")
+                }
+            }
+
             // Active Vision / Image OCR Context if available
             val vision = activeVisionResult
             if (vision != null && vision.success && vision.extractedText.isNotBlank()) {
@@ -150,9 +214,30 @@ class AgentBrain(
                 }
                 contextBuilder.appendLine("ACTIVE OCR VISION CONTEXT:")
                 contextBuilder.appendLine("Extracted Text: \"${sanitizedText.take(400)}\"")
+
+                // Structured extraction from OCR text
+                val ocrExtracted = InformationExtractionEngine.extractFromOcr(vision)
+                val ocrEntities = mutableListOf<String>()
+                if (ocrExtracted.phoneNumbers.isNotEmpty()) ocrEntities.add("Phones: " + ocrExtracted.phoneNumbers.joinToString { it.phoneNumber })
+                if (ocrExtracted.emails.isNotEmpty()) ocrEntities.add("Emails: " + ocrExtracted.emails.joinToString { it.email })
+                if (ocrExtracted.urls.isNotEmpty()) ocrEntities.add("URLs: " + ocrExtracted.urls.joinToString { it.url })
+                if (ocrExtracted.currencies.isNotEmpty()) ocrEntities.add("Amounts: " + ocrExtracted.currencies.joinToString { "${it.currencySymbol}${it.amount}" })
+                if (ocrExtracted.identifiers.isNotEmpty()) ocrEntities.add("IDs: " + ocrExtracted.identifiers.joinToString { it.id })
+                if (ocrEntities.isNotEmpty()) {
+                    contextBuilder.appendLine("OCR DETECTED ENTITIES: ${ocrEntities.joinToString(" | ")}")
+                }
+
                 if (vision.containsSensitiveData) {
                     contextBuilder.appendLine("SENSITIVITY ALERT: Contains sensitive tokens (${vision.sensitiveEntitiesDetected.joinToString()}). Must NOT be stored in persistent long-term memory.")
                 }
+            }
+
+            // Active Document Context if available
+            val doc = activeDocument
+            if (doc != null && doc.isSuccessful()) {
+                val summary = activeDocumentSummary ?: com.example.jarvis.document.DocumentIntelligenceEngine.analyze(doc)
+                val analysis = activeFileAnalysis ?: com.example.jarvis.document.AdvancedFileAnalyzer.analyze(doc)
+                contextBuilder.appendLine(com.example.jarvis.document.DocumentIntelligenceEngine.formatContextForBrain(doc, summary, analysis))
             }
 
             val contextString = contextBuilder.toString().trimEnd()
@@ -172,7 +257,20 @@ class AgentBrain(
                 registry.getTool(decision.toolName)
             } else null
 
-            val toolInput = decision.toolInput ?: input
+            // Refine toolInput with extracted structured parameters if tool input is missing or general
+            val toolInput = when {
+                selectedTool?.name.equals("PhoneCall", ignoreCase = true) &&
+                        extractedInfo.phoneNumbers.isNotEmpty() &&
+                        (decision.toolInput == null || !decision.toolInput.any { it.isDigit() }) -> {
+                    extractedInfo.phoneNumbers.first().phoneNumber
+                }
+                selectedTool?.name.equals("OpenUrl", ignoreCase = true) &&
+                        extractedInfo.urls.isNotEmpty() &&
+                        (decision.toolInput == null || !decision.toolInput.startsWith("http")) -> {
+                    extractedInfo.urls.first().url
+                }
+                else -> decision.toolInput ?: input
+            }
 
             if (selectedTool != null) {
                 _currentPlanExplanation.value = "Selected Tool: ${selectedTool.name} (Risk: ${selectedTool.riskLevel})"
@@ -240,14 +338,60 @@ class AgentBrain(
                     appendLine("User: $input")
                 }
 
-                val finalResponse = aiProvider.generateResponse(
-                    prompt = prompt,
-                    systemInstruction = repository.settings.value.systemPrompt,
-                    onChunkReceived = { chunk ->
-                        repository.updateStreamingMessage(chunk)
+                val finalResponse = try {
+                    val retryPolicy = RetryPolicy(maxAttempts = 3, initialBackoffMs = 250L, maxBackoffMs = 2000L)
+                    val retryResult = executeWithRetry(
+                        policy = retryPolicy,
+                        operationName = "AIProvider:generateResponse",
+                        source = "AI_PROVIDER",
+                        onRetry = { attempt, error, _ ->
+                            _recoveryState.value = RecoveryState(
+                                status = RecoveryStatus.RETRYING,
+                                lastError = error,
+                                attempt = attempt,
+                                maxAttempts = 3,
+                                message = "Re-establishing link (attempt $attempt/3)..."
+                            )
+                            _currentPlanExplanation.value = "Re-establishing link (attempt $attempt/3)..."
+                        }
+                    ) {
+                        aiProvider.generateResponse(
+                            prompt = prompt,
+                            systemInstruction = repository.settings.value.systemPrompt,
+                            onChunkReceived = { chunk ->
+                                repository.updateStreamingMessage(chunk)
+                            }
+                        )
                     }
-                )
 
+                    retryResult.getOrElse { throwable ->
+                        val error = ErrorClassifier.classify(throwable, source = "AI_PROVIDER")
+                        val status = if (error.category == ErrorCategory.RATE_LIMIT) {
+                            RecoveryStatus.TEMPORARILY_UNAVAILABLE
+                        } else {
+                            RecoveryStatus.FAILED
+                        }
+                        _recoveryState.value = RecoveryState(
+                            status = status,
+                            lastError = error,
+                            message = error.userSafeMessage
+                        )
+                        repository.logActivity(
+                            title = "AI Recovery Engaged",
+                            detail = "${error.category}: ${error.userSafeMessage}",
+                            type = ActivityType.SYSTEM_EVENT
+                        )
+                        val localFallback = LocalNeuralBrainProvider.generateLocalResponse(prompt) { chunk ->
+                            repository.updateStreamingMessage(chunk)
+                        }
+                        "$localFallback\n\n*(Note: Cloud link temporarily unavailable [${error.category}]. Operating via onboard neural engine.)*"
+                    }
+                } catch (t: Throwable) {
+                    val safeError = ErrorClassifier.classify(t, source = "AgentBrain")
+                    safeError.userSafeMessage
+                }
+
+                _recoveryState.value = RecoveryState(status = RecoveryStatus.IDLE)
                 repository.finalizeStreamingMessage(finalResponse)
                 recordTurn(input, finalResponse)
                 deliverFinalResponse(finalResponse, onSpeaking, onIdle)
@@ -262,18 +406,51 @@ class AgentBrain(
         onSpeaking: () -> Unit,
         onIdle: () -> Unit
     ) {
-        val toolContext = ToolContext(repository = repository, bridge = bridge, activeVisionResult = activeVisionResult)
+        val toolContext = ToolContext(
+            repository = repository,
+            bridge = bridge,
+            activeVisionResult = activeVisionResult,
+            activeDocument = activeDocument,
+            activeDocumentSummary = activeDocumentSummary,
+            activeFileAnalysis = activeFileAnalysis,
+            previousDocument = previousDocument,
+            previousFileAnalysis = previousFileAnalysis,
+            fileGenerationPipeline = fileGenerationPipeline
+        )
 
-        // 5. Tool Execution
-        val result = tool.execute(toolInput, toolContext)
+        // 5. Safe Tool Execution with idempotency & error recovery
+        val result = ToolRecovery.executeSafely(
+            tool = tool,
+            input = toolInput,
+            context = toolContext,
+            onRetryAttempt = { attempt, error ->
+                _recoveryState.value = RecoveryState(
+                    status = RecoveryStatus.RETRYING,
+                    lastError = error,
+                    attempt = attempt,
+                    maxAttempts = 2,
+                    message = "Retrying ${tool.name} (attempt $attempt)..."
+                )
+                _currentPlanExplanation.value = "Retrying ${tool.name} (attempt $attempt)..."
+            }
+        )
 
         // 6. Result Verification
-        val isVerified = tool.verify(result, toolContext)
+        val isVerified = if (result.success) {
+            tool.verify(result, toolContext)
+        } else {
+            false
+        }
+
         val verifiedOutput = if (isVerified) {
             result.output
-        } else {
+        } else if (result.success) {
             "${result.output}\n\n*(Post-action verification alert: Device hardware state did not reflect expected change.)*"
+        } else {
+            result.output
         }
+
+        _recoveryState.value = RecoveryState(status = RecoveryStatus.IDLE)
 
         // Record in chat & update context
         lastExecutedToolName = tool.name

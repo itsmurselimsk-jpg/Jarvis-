@@ -75,6 +75,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         }
     )
 
+    val recoveryState = brain.recoveryState
+    val currentPlanExplanation = brain.currentPlanExplanation
+    val lastExtractedData = brain.lastExtractedData
+
     val toolContext = ToolContext(repository, bridge)
 
     private val _jarvisState = MutableStateFlow(JarvisState.IDLE)
@@ -113,6 +117,16 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     val visionEngine: VisionEngine = JarvisVisionEngine()
     val visionProvider: VisionProvider = LocalVisionProvider(visionEngine)
+
+    // Document Intelligence state
+    private val _activeDocument = MutableStateFlow<com.example.jarvis.document.DocumentModel?>(null)
+    val activeDocument: StateFlow<com.example.jarvis.document.DocumentModel?> = _activeDocument.asStateFlow()
+
+    private val _activeDocumentSummary = MutableStateFlow<com.example.jarvis.document.DocumentSummary?>(null)
+    val activeDocumentSummary: StateFlow<com.example.jarvis.document.DocumentSummary?> = _activeDocumentSummary.asStateFlow()
+
+    private val _activeFileAnalysis = MutableStateFlow<com.example.jarvis.document.FileAnalysisResult?>(null)
+    val activeFileAnalysis: StateFlow<com.example.jarvis.document.FileAnalysisResult?> = _activeFileAnalysis.asStateFlow()
 
     init {
         // Continuous speech-to-speech loop: return to listening upon speech completion
@@ -294,6 +308,43 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         _activeVisionResult.value = null
         _activeVisionUri.value = null
         brain.activeVisionResult = null
+    }
+
+    fun loadDocument(uri: Uri) {
+        viewModelScope.launch {
+            val doc = com.example.jarvis.document.UniversalDocumentReader.readUri(
+                context = getApplication(),
+                uri = uri
+            )
+            setLoadedDocument(doc)
+        }
+    }
+
+    fun setLoadedDocument(doc: com.example.jarvis.document.DocumentModel) {
+        _activeDocument.value = doc
+        val summary = com.example.jarvis.document.DocumentIntelligenceEngine.analyze(doc)
+        val analysis = com.example.jarvis.document.AdvancedFileAnalyzer.analyze(doc)
+        _activeDocumentSummary.value = summary
+        _activeFileAnalysis.value = analysis
+        brain.attachDocument(doc)
+        repository.logActivity(
+            "Document Loaded",
+            "${doc.fileName} (${doc.documentType}, ${doc.sizeBytes} bytes)",
+            ActivityType.TOOL_EXECUTION
+        )
+    }
+
+    fun clearActiveDocument() {
+        _activeDocument.value = null
+        _activeDocumentSummary.value = null
+        _activeFileAnalysis.value = null
+        brain.clearActiveDocument()
+    }
+
+    fun askJarvisAboutDocument(prompt: String) {
+        _activeSubScreen.value = null
+        _currentTab.value = NavTab.CHAT
+        sendUserMessage(prompt)
     }
 
     fun askJarvisAboutVision(prompt: String) {

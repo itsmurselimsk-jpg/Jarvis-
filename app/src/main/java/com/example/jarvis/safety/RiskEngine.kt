@@ -25,7 +25,8 @@ object RiskEngine {
         Regex("""(?i)\b(call|dial|phone|sms|send\s+text|message|email)\b"""),
         Regex("""(?i)\b(delete|remove|erase|wipe|clear|purge)\s+(all|memory|memories|tasks|contacts|data|files)\b"""),
         Regex("""(?i)\b(open\s+url|launch\s+browser|browse\s+to|open\s+link)\b"""),
-        Regex("""(?i)\b(modify|change|toggle)\s+(system\s+settings|bluetooth|wifi|security|lock)\b""")
+        Regex("""(?i)\b(modify|change|toggle)\s+(system\s+settings|bluetooth|wifi|security|lock)\b"""),
+        Regex("""(?i)\b(overwrite|replace|force\s+write)\s+(?:existing\s+)?(?:file|report|document)\b""")
     )
 
     fun assessAction(actionName: String, actionPayload: String, baseRisk: RiskLevel = RiskLevel.SAFE): RiskAssessment {

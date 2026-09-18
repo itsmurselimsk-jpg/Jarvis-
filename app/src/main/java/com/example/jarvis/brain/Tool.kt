@@ -7,7 +7,13 @@ import com.example.jarvis.storage.JarvisRepository
 data class ToolContext(
     val repository: JarvisRepository,
     val bridge: AndroidBridge,
-    val activeVisionResult: com.example.jarvis.vision.VisionResult? = null
+    val activeVisionResult: com.example.jarvis.vision.VisionResult? = null,
+    val activeDocument: com.example.jarvis.document.DocumentModel? = null,
+    val activeDocumentSummary: com.example.jarvis.document.DocumentSummary? = null,
+    val activeFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null,
+    val previousDocument: com.example.jarvis.document.DocumentModel? = null,
+    val previousFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null,
+    val fileGenerationPipeline: com.example.jarvis.generation.FileGenerationPipeline? = null
 )
 
 data class ToolResult(

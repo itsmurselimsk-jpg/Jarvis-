@@ -169,13 +169,8 @@ class GeminiAIProvider(
                 ?.optJSONObject(0)
                 ?.optString("text") ?: ""
 
-            val decisionJson = JSONObject(jsonText)
-            val useTool = decisionJson.optBoolean("useTool", false)
-            val toolName = decisionJson.optString("toolName", "").ifBlank { null }
-            val toolInput = decisionJson.optString("toolInput", userInput)
-            val reasoning = decisionJson.optString("reasoning", "")
-
-            ToolDecision(useTool = useTool, toolName = toolName, toolInput = toolInput, reasoning = reasoning)
+            val repairedDecision = com.example.jarvis.recovery.ResponseRepair.parseToolDecisionWithRepair(jsonText, userInput)
+            repairedDecision ?: LocalNeuralBrainProvider.decideToolLocal(userInput, availableTools)
         } catch (_: Exception) {
             LocalNeuralBrainProvider.decideToolLocal(userInput, availableTools)
         }
@@ -469,6 +464,23 @@ object LocalNeuralBrainProvider {
             lower.startsWith("search for") || lower.startsWith("google ") || lower.startsWith("search ") ->
                 ToolDecision(true, "WebSearch", userInput, "External web search synthesis")
 
+            // Document Intelligence
+            lower.contains("analyze document") || lower.contains("document summary") || lower.contains("document entities") ||
+            lower.contains("summarize document") || lower.contains("document stats") || lower.contains("inspect document") ->
+                ToolDecision(true, "DocumentIntelligence", userInput, "Document intelligence and analysis")
+
+            // File Generation Pipeline (TXT, Markdown, CSV, JSON, PDF, DOCX, XLSX)
+            lower.startsWith("generate file") || lower.startsWith("create file") || lower.startsWith("export file") ||
+            lower.startsWith("save as") || lower.startsWith("export as") || lower.startsWith("make a file") ||
+            lower.contains("create a pdf") || lower.contains("generate a pdf") || lower.contains("export to pdf") || lower.contains("save as pdf") ||
+            lower.contains("create a csv") || lower.contains("generate a csv") || lower.contains("export to csv") || lower.contains("save as csv") ||
+            lower.contains("create a docx") || lower.contains("generate a docx") || lower.contains("export to docx") || lower.contains("save as docx") || lower.contains("word document") ||
+            lower.contains("create a xlsx") || lower.contains("generate a xlsx") || lower.contains("export to xlsx") || lower.contains("save as xlsx") || lower.contains("excel file") || lower.contains("spreadsheet") ||
+            lower.contains("create a json") || lower.contains("generate a json") || lower.contains("export to json") || lower.contains("save as json") ||
+            lower.contains("create a markdown") || lower.contains("generate markdown") || lower.contains("save as markdown") || lower.contains("export to markdown") ||
+            lower.contains("create a text file") || lower.contains("generate text file") || lower.contains("save as txt") || lower.contains("export as txt") ->
+                ToolDecision(true, "FileGeneration", userInput, "Structured file generation pipeline")
+
             // Weather
             lower.contains("weather") || lower.contains("forecast") ->
                 ToolDecision(true, "Weather", userInput, "Meteorological inquiry")
@@ -517,11 +529,24 @@ class JarvisUnifiedAIProvider(
         systemInstruction: String,
         onChunkReceived: (String) -> Unit
     ): String {
-        return try {
+        val retryPolicy = com.example.jarvis.recovery.RetryPolicy(maxAttempts = 3, initialBackoffMs = 250L, maxBackoffMs = 2000L)
+        val result = com.example.jarvis.recovery.executeWithRetry(
+            policy = retryPolicy,
+            operationName = "AIProvider:generateResponse",
+            source = "AI_PROVIDER"
+        ) {
             getActiveProvider().generateResponse(prompt, systemInstruction, onChunkReceived)
-        } catch (e: Exception) {
+        }
+
+        return result.getOrElse { throwable ->
+            val error = com.example.jarvis.recovery.ErrorClassifier.classify(throwable, source = "AI_PROVIDER")
+            repository.logActivity(
+                title = "AI Recovery Engaged",
+                detail = "${error.category}: ${error.userSafeMessage}",
+                type = com.example.jarvis.model.ActivityType.SYSTEM_EVENT
+            )
             val local = LocalNeuralBrainProvider.generateLocalResponse(prompt, onChunkReceived)
-            "$local\n\n*(Note: Cloud link experienced latency: ${e.localizedMessage ?: "Using onboard neural engine"}.)*"
+            "$local\n\n*(Note: Cloud link temporarily unavailable [${error.category}]. Operating via onboard neural engine.)*"
         }
     }
 

@@ -223,6 +223,16 @@ object JarvisDiagnostics {
             )
         )
 
+        // 15. Error Recovery & Fault Tolerance
+        results.add(
+            DiagnosticItem(
+                component = "Error Recovery Engine",
+                status = DiagnosticStatus.WORKING,
+                details = "Bounded exponential backoff, rate-limit avoidance, and safe fallback active",
+                category = "Intelligence"
+            )
+        )
+
         return results
     }
 
