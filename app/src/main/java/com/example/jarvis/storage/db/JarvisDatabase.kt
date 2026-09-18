@@ -111,7 +111,11 @@ data class NotificationLogEntity(
     val appTitle: String,
     val title: String,
     val text: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val category: String = "OTHER",
+    val priority: String = "NORMAL",
+    val isOngoing: Boolean = false,
+    val groupKey: String = ""
 )
 
 @Dao
@@ -120,7 +124,19 @@ interface NotificationDao {
     fun getRecentNotifications(): Flow<List<NotificationLogEntity>>
 
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC LIMIT :limit")
-    suspend fun getRecentNotificationsSync(limit: Int = 20): List<NotificationLogEntity>
+    suspend fun getRecentNotificationsSync(limit: Int = 50): List<NotificationLogEntity>
+
+    @Query("SELECT * FROM notifications WHERE priority = 'HIGH' ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getHighPriorityNotificationsSync(limit: Int = 20): List<NotificationLogEntity>
+
+    @Query("SELECT * FROM notifications WHERE category = :category ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getNotificationsByCategorySync(category: String, limit: Int = 30): List<NotificationLogEntity>
+
+    @Query("SELECT * FROM notifications WHERE appTitle LIKE '%' || :query || '%' OR packageName LIKE '%' || :query || '%' ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getNotificationsByAppSync(query: String, limit: Int = 30): List<NotificationLogEntity>
+
+    @Query("SELECT * FROM notifications WHERE title LIKE '%' || :query || '%' OR text LIKE '%' || :query || '%' OR appTitle LIKE '%' || :query || '%' ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun searchNotificationsSync(query: String, limit: Int = 50): List<NotificationLogEntity>
 
     @Query("SELECT COUNT(*) FROM notifications")
     fun getNotificationCount(): Flow<Int>
@@ -168,7 +184,7 @@ interface ActivityLogDao {
 
 @Database(
     entities = [MemoryEntity::class, TaskEntity::class, NotificationLogEntity::class, ActivityLogEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class JarvisDatabase : RoomDatabase() {

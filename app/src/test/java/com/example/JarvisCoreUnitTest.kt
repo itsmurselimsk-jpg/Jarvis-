@@ -136,4 +136,64 @@ class JarvisCoreUnitTest {
         assertTrue(languages.contains("hi-Latn"))
         assertTrue(languages.contains("bn-Latn"))
     }
+
+    @Test
+    fun testDiagnosticItemStatuses() {
+        val working = com.example.jarvis.diagnostics.DiagnosticItem(
+            component = "Microphone",
+            status = com.example.jarvis.diagnostics.DiagnosticStatus.WORKING,
+            details = "Operational"
+        )
+        assertEquals(com.example.jarvis.diagnostics.DiagnosticStatus.WORKING, working.status)
+
+        val permRequired = com.example.jarvis.diagnostics.DiagnosticItem(
+            component = "Camera",
+            status = com.example.jarvis.diagnostics.DiagnosticStatus.PERMISSION_REQUIRED,
+            details = "CAMERA permission required"
+        )
+        assertEquals(com.example.jarvis.diagnostics.DiagnosticStatus.PERMISSION_REQUIRED, permRequired.status)
+
+        val report = com.example.jarvis.diagnostics.JarvisDiagnostics.formatDiagnosticReport(listOf(working, permRequired))
+        assertTrue(report.contains("JARVIS SYSTEM SELF-DIAGNOSTICS REPORT"))
+        assertTrue(report.contains("Microphone: WORKING"))
+        assertTrue(report.contains("Camera: PERMISSION REQUIRED"))
+    }
+
+    @Test
+    fun testDiagnosticsToolDecision() {
+        val tools = listOf(
+            Pair("Diagnostics", "Subsystem diagnostic audit"),
+            Pair("Memory", "Room memory store"),
+            Pair("Battery", "Check battery")
+        )
+
+        val diagDecision = LocalNeuralBrainProvider.decideToolLocal("run system diagnostics", tools)
+        assertTrue(diagDecision.useTool)
+        assertEquals("Diagnostics", diagDecision.toolName)
+
+        val statusDecision = LocalNeuralBrainProvider.decideToolLocal("what is the system status and health check?", tools)
+        assertTrue(statusDecision.useTool)
+        assertEquals("Diagnostics", statusDecision.toolName)
+    }
+
+    @Test
+    fun testMemoryToolDecision() {
+        val tools = listOf(
+            Pair("Diagnostics", "Subsystem diagnostic audit"),
+            Pair("Memory", "Room memory store"),
+            Pair("Battery", "Check battery")
+        )
+
+        val rememberDecision = LocalNeuralBrainProvider.decideToolLocal("remember that my flight is at 7pm", tools)
+        assertTrue(rememberDecision.useTool)
+        assertEquals("Memory", rememberDecision.toolName)
+
+        val forgetDecision = LocalNeuralBrainProvider.decideToolLocal("forget my flight details", tools)
+        assertTrue(forgetDecision.useTool)
+        assertEquals("Memory", forgetDecision.toolName)
+
+        val searchDecision = LocalNeuralBrainProvider.decideToolLocal("search my memories for doctor", tools)
+        assertTrue(searchDecision.useTool)
+        assertEquals("Memory", searchDecision.toolName)
+    }
 }

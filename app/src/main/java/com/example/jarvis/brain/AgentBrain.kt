@@ -45,6 +45,14 @@ class AgentBrain(
     private val _currentPlanExplanation = MutableStateFlow<String?>(null)
     val currentPlanExplanation: StateFlow<String?> = _currentPlanExplanation.asStateFlow()
 
+    // Short-term conversation context buffer: stores last N turns without sending entire history to provider
+    private val conversationBuffer = mutableListOf<Pair<String, String>>()
+    private val maxBufferTurns = 4
+
+    // Recent tool execution tracking
+    private var lastExecutedToolName: String? = null
+    private var lastExecutedToolResult: String? = null
+
     var onSpeechCompletedCallback: (() -> Unit)? = null
 
     init {
@@ -73,7 +81,13 @@ class AgentBrain(
         registry.register(WeatherTool())
         registry.register(YouTubeSearchTool())
         registry.register(PhoneCallTool())
+        registry.register(DiagnosticsTool())
+        registry.register(UniversalSearchTool())
+        registry.register(VisionOcrTool())
     }
+
+    // Active vision / image OCR context if user recently scanned or inspected an image
+    var activeVisionResult: com.example.jarvis.vision.VisionResult? = null
 
     /**
      * Canonical AgentLoop:
@@ -98,10 +112,50 @@ class AgentBrain(
         scope.launch {
             onThinking()
 
-            // 1. Context Assembly
+            // 1. Context Assembly (Compact & Bounded)
             bridge.refreshTelemetry()
             val telemetry = bridge.telemetry.value
-            val contextString = "DEVICE TELEMETRY: Battery ${telemetry.batteryPercent}%, Net: ${telemetry.networkType}, Audio: ${telemetry.volumePercent}%"
+            val contextBuilder = StringBuilder()
+            contextBuilder.appendLine("DEVICE TELEMETRY: Battery ${telemetry.batteryPercent}%, Net: ${telemetry.networkType}, Audio: ${telemetry.volumePercent}%")
+
+            // Active tasks summary (max 3 pending)
+            val pendingTasks = repository.tasks.value.filter { !it.isCompleted }.take(3)
+            if (pendingTasks.isNotEmpty()) {
+                val taskList = pendingTasks.joinToString(", ") { it.title }
+                contextBuilder.appendLine("ACTIVE PENDING TASKS: $taskList")
+            }
+
+            // Recent tool result if available
+            if (lastExecutedToolName != null && lastExecutedToolResult != null) {
+                val briefResult = lastExecutedToolResult!!.take(120).replace("\n", " ")
+                contextBuilder.appendLine("RECENT TOOL EXECUTED: $lastExecutedToolName -> $briefResult")
+            }
+
+            // Short-term conversation context (last turns)
+            if (conversationBuffer.isNotEmpty()) {
+                contextBuilder.appendLine("RECENT DIALOGUE CONTEXT:")
+                conversationBuffer.takeLast(3).forEach { (user, jarvis) ->
+                    contextBuilder.appendLine("User: $user")
+                    contextBuilder.appendLine("JARVIS: ${jarvis.take(100)}")
+                }
+            }
+
+            // Active Vision / Image OCR Context if available
+            val vision = activeVisionResult
+            if (vision != null && vision.success && vision.extractedText.isNotBlank()) {
+                val sanitizedText = if (vision.containsSensitiveData) {
+                    com.example.jarvis.vision.SensitiveDataFilter.redactSensitiveData(vision.extractedText)
+                } else {
+                    vision.extractedText
+                }
+                contextBuilder.appendLine("ACTIVE OCR VISION CONTEXT:")
+                contextBuilder.appendLine("Extracted Text: \"${sanitizedText.take(400)}\"")
+                if (vision.containsSensitiveData) {
+                    contextBuilder.appendLine("SENSITIVITY ALERT: Contains sensitive tokens (${vision.sensitiveEntitiesDetected.joinToString()}). Must NOT be stored in persistent long-term memory.")
+                }
+            }
+
+            val contextString = contextBuilder.toString().trimEnd()
 
             // 2. Memory Retrieval
             val relevantMemories = retrieveRelevantMemories(input)
@@ -151,7 +205,7 @@ class AgentBrain(
                             riskLevel = RiskLevel.CONFIRMATION,
                             onConfirm = {
                                 scope.launch {
-                                    executeAndDeliverTool(selectedTool, toolInput, onSpeaking, onIdle)
+                                    executeAndDeliverTool(selectedTool, toolInput, input, onSpeaking, onIdle)
                                 }
                             },
                             onCancel = {
@@ -169,7 +223,7 @@ class AgentBrain(
 
                     RiskLevel.SAFE -> {
                         // Execute immediately
-                        executeAndDeliverTool(selectedTool, toolInput, onSpeaking, onIdle)
+                        executeAndDeliverTool(selectedTool, toolInput, input, onSpeaking, onIdle)
                     }
                 }
             } else {
@@ -195,6 +249,7 @@ class AgentBrain(
                 )
 
                 repository.finalizeStreamingMessage(finalResponse)
+                recordTurn(input, finalResponse)
                 deliverFinalResponse(finalResponse, onSpeaking, onIdle)
             }
         }
@@ -203,10 +258,11 @@ class AgentBrain(
     private suspend fun executeAndDeliverTool(
         tool: Tool,
         toolInput: String,
+        originalUserInput: String,
         onSpeaking: () -> Unit,
         onIdle: () -> Unit
     ) {
-        val toolContext = ToolContext(repository = repository, bridge = bridge)
+        val toolContext = ToolContext(repository = repository, bridge = bridge, activeVisionResult = activeVisionResult)
 
         // 5. Tool Execution
         val result = tool.execute(toolInput, toolContext)
@@ -219,7 +275,11 @@ class AgentBrain(
             "${result.output}\n\n*(Post-action verification alert: Device hardware state did not reflect expected change.)*"
         }
 
-        // Record in chat
+        // Record in chat & update context
+        lastExecutedToolName = tool.name
+        lastExecutedToolResult = verifiedOutput
+        recordTurn(originalUserInput, verifiedOutput)
+
         repository.addMessage(
             ChatMessage(
                 sender = MessageSender.JARVIS,
@@ -230,6 +290,13 @@ class AgentBrain(
         )
 
         deliverFinalResponse(verifiedOutput, onSpeaking, onIdle)
+    }
+
+    private fun recordTurn(userInput: String, assistantOutput: String) {
+        conversationBuffer.add(Pair(userInput, assistantOutput))
+        while (conversationBuffer.size > maxBufferTurns) {
+            conversationBuffer.removeAt(0)
+        }
     }
 
     private fun deliverFinalResponse(
@@ -259,12 +326,33 @@ class AgentBrain(
     private fun retrieveRelevantMemories(query: String): String {
         val memories = repository.memories.value
         if (memories.isEmpty()) return ""
-        val matches = memories.filter {
-            it.title.contains(query, ignoreCase = true) || it.content.contains(query, ignoreCase = true)
-        }.take(3)
 
-        return if (matches.isNotEmpty()) {
-            "RELEVANT LONG-TERM MEMORIES:\n" + matches.joinToString("\n") { "• [${it.title}] ${it.content}" }
+        val cleaned = query.lowercase().trim()
+        val stopWords = setOf("the", "a", "an", "is", "are", "was", "were", "what", "where", "who", "how", "when", "why", "my", "your", "me", "you", "i", "to", "in", "on", "for", "with", "about", "tell", "jarvis", "please", "can")
+        val queryTokens = cleaned.split(Regex("[^a-zA-Z0-9]+")).filter { it.length > 2 && !stopWords.contains(it) }
+
+        // Scored retrieval
+        val scored = memories.map { mem ->
+            var score = 0
+            val titleLower = mem.title.lowercase()
+            val contentLower = mem.content.lowercase()
+
+            if (titleLower.contains(cleaned) || contentLower.contains(cleaned)) {
+                score += 10
+            }
+
+            for (token in queryTokens) {
+                if (titleLower.contains(token)) score += 3
+                if (contentLower.contains(token)) score += 2
+            }
+
+            Pair(mem, score)
+        }.filter { it.second > 0 }
+         .sortedByDescending { it.second }
+         .take(4)
+
+        return if (scored.isNotEmpty()) {
+            "RELEVANT LONG-TERM MEMORIES:\n" + scored.joinToString("\n") { "• [${it.first.title}] ${it.first.content}" }
         } else ""
     }
 }

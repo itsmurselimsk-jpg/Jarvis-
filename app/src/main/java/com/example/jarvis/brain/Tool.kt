@@ -6,7 +6,8 @@ import com.example.jarvis.storage.JarvisRepository
 
 data class ToolContext(
     val repository: JarvisRepository,
-    val bridge: AndroidBridge
+    val bridge: AndroidBridge,
+    val activeVisionResult: com.example.jarvis.vision.VisionResult? = null
 )
 
 data class ToolResult(

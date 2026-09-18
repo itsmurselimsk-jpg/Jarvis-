@@ -20,13 +20,53 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
+/**
+ * Pluggable abstraction for image understanding & multimodal AI.
+ */
 interface VisionProvider {
+    val providerName: String
+    val isMultimodalCapable: Boolean
     suspend fun analyzeImage(bitmap: Bitmap, userPrompt: String): String
 }
 
+/**
+ * Local-only fallback vision provider that relies on optical inspection
+ * and informs the user when deep multimodal reasoning requires a configured provider.
+ */
+class LocalVisionProvider(
+    private val visionEngine: VisionEngine? = null
+) : VisionProvider {
+    override val providerName: String = "Local Optical Analyzer"
+    override val isMultimodalCapable: Boolean = false
+
+    override suspend fun analyzeImage(bitmap: Bitmap, userPrompt: String): String = withContext(Dispatchers.IO) {
+        val opticalMetrics = HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
+        val ocrSnippet = if (visionEngine != null) {
+            val ocr = visionEngine.processBitmap(bitmap)
+            if (ocr.extractedText.isNotBlank()) {
+                "\n\nEXTRACTED OCR TEXT:\n${ocr.extractedText.take(300)}"
+            } else {
+                "\n\nEXTRACTED OCR TEXT: None detected."
+            }
+        } else ""
+
+        buildString {
+            appendLine(opticalMetrics)
+            append(ocrSnippet)
+            appendLine("\n\n*Notice: Full image understanding requires a configured vision AI provider.*")
+        }.trimEnd()
+    }
+}
+
+/**
+ * Cloud multimodal provider using Google Gemini Vision.
+ * Only activated when user configures a key or explicit approval is given.
+ */
 class GeminiVisionProvider(
     private val repository: JarvisRepository
 ) : VisionProvider {
+    override val providerName: String = "Gemini Multimodal Vision"
+    override val isMultimodalCapable: Boolean = true
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -38,15 +78,15 @@ class GeminiVisionProvider(
         val effectiveKey = settings.customApiKey.ifBlank { BuildConfig.GEMINI_API_KEY }
 
         if (effectiveKey.isBlank() || effectiveKey == "MY_GEMINI_API_KEY") {
-            return@withContext HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
+            return@withContext "Full image understanding requires a configured vision AI provider. Local telemetry:\n" +
+                    HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
         }
 
         try {
-            val model = "gemini-3.5-flash"
+            val model = "gemini-2.5-flash"
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveKey"
 
             val stream = ByteArrayOutputStream()
-            // Compress bitmap
             bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
             val base64Bytes = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
 
@@ -55,11 +95,11 @@ class GeminiVisionProvider(
             val contentObj = JSONObject()
             val partsArray = JSONArray()
 
-            // Text prompt part
+            // Text prompt
             val textPart = JSONObject().put("text", userPrompt.ifBlank { "Describe this image in precise, analytical detail for JARVIS executive logs." })
             partsArray.put(textPart)
 
-            // Inline data part
+            // Inline data
             val inlineData = JSONObject().apply {
                 put("mimeType", "image/jpeg")
                 put("data", base64Bytes)
@@ -77,7 +117,8 @@ class GeminiVisionProvider(
             val respBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful) {
-                return@withContext HeuristicVisionProvider.analyzeLocal(bitmap, "$userPrompt (Cloud fallback: HTTP ${response.code})")
+                return@withContext "Cloud vision provider error (HTTP ${response.code}). Falling back to local telemetry:\n" +
+                        HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
             }
 
             val parsed = JSONObject(respBody)
@@ -88,9 +129,11 @@ class GeminiVisionProvider(
                 ?.optJSONObject(0)
                 ?.optString("text")
 
-            text ?: HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
+            text ?: ("Full image understanding requires a configured vision AI provider.\n" +
+                    HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt))
         } catch (e: Exception) {
-            HeuristicVisionProvider.analyzeLocal(bitmap, "$userPrompt (Local fallback: ${e.message})")
+            "Cloud vision failed: ${e.localizedMessage ?: "Network error"}. Local telemetry:\n" +
+                    HeuristicVisionProvider.analyzeLocal(bitmap, userPrompt)
         }
     }
 }
@@ -99,7 +142,7 @@ object HeuristicVisionProvider {
     fun analyzeLocal(bitmap: Bitmap, prompt: String): String {
         val width = bitmap.width
         val height = bitmap.height
-        val aspectRatio = String.format("%.2f", width.toFloat() / height.toFloat())
+        val aspectRatio = String.format("%.2f", if (height > 0) width.toFloat() / height.toFloat() else 1f)
 
         var totalLum = 0.0
         val sampleStep = 10
@@ -123,12 +166,12 @@ object HeuristicVisionProvider {
         }
 
         return buildString {
-            appendLine("JARVIS ONBOARD OPTICAL TELEMETRY:")
+            appendLine("JARVIS OPTICAL TELEMETRY:")
             appendLine("• Optical Resolution: ${width}x${height} px (Aspect: $aspectRatio)")
             appendLine("• Luminance Metrics: ${String.format("%.1f", avgLum)} / 255 ($lighting)")
             appendLine("• Sensory Intent: \"${prompt.ifBlank { "General Optical Diagnostic" }}\"")
-            appendLine("• Neural Conclusion: Frame acquired and verified. Image is crisp with healthy dynamic range. To unlock deep semantic reasoning, configure a Gemini API key.")
-        }
+            appendLine("• Neural Conclusion: Frame acquired and verified. Image is crisp with healthy dynamic range.")
+        }.trimEnd()
     }
 
     fun loadScaledBitmap(context: Context, uri: Uri, maxDimension: Int = 1024): Bitmap? {

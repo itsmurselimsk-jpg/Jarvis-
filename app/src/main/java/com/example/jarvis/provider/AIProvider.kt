@@ -408,12 +408,16 @@ object LocalNeuralBrainProvider {
             lower.contains("clipboard") || lower.startsWith("copy ") || lower.contains("paste") ->
                 ToolDecision(true, "Clipboard", userInput, "Clipboard buffer interaction")
 
+            // Diagnostics / Self Test
+            lower.contains("diagnostics") || lower.contains("self test") || lower.contains("system status") || lower.contains("health check") || lower.contains("run diagnostics") ->
+                ToolDecision(true, "Diagnostics", userInput, "Comprehensive subsystem diagnostic self-test")
+
             // Device Info / Hardware
             lower.contains("device info") || lower.contains("hardware") || lower.contains("specifications") || lower.contains("system telemetry") ->
                 ToolDecision(true, "DeviceInfo", userInput, "Hardware diagnostics query")
 
             // Memory
-            lower.startsWith("remember") || lower.startsWith("forget") || lower.contains("my memories") ->
+            lower.startsWith("remember") || lower.startsWith("forget") || lower.contains("memory") || lower.contains("memories") ->
                 ToolDecision(true, "Memory", userInput, "Room memory management")
 
             // Tasks / Reminders
@@ -436,9 +440,30 @@ object LocalNeuralBrainProvider {
             lower.startsWith("inspect screen") || lower.startsWith("tap on") || lower.contains("accessibility") || lower.startsWith("scroll") ->
                 ToolDecision(true, "AccessibilityAgent", userInput, "Accessibility agent dispatch")
 
-            // Notifications
-            lower.contains("notification") || lower.contains("unread messages") ->
-                ToolDecision(true, "Notifications", userInput, "Notification listener inspection")
+            // Notifications & Missed Alerts
+            lower.contains("notification") || lower.contains("unread messages") || lower.contains("what did i miss") ||
+            lower.contains("missed notifications") || lower.contains("important alerts") || lower.contains("security alerts") ||
+            (lower.startsWith("what came from") || lower.startsWith("notifications from")) ->
+                ToolDecision(true, "Notifications", userInput, "Notification intelligence inspection")
+
+            // Vision & OCR extraction
+            lower.contains("read this image") || lower.contains("read image") || lower.contains("read this") ||
+            lower.contains("what does this image say") || lower.contains("what does this screenshot say") ||
+            lower.contains("what's written here") || lower.contains("whats written here") ||
+            lower.contains("explain this screenshot") || lower.contains("find the phone number in this image") ||
+            lower.contains("is there an otp") || lower.contains("translate this image") ||
+            lower.contains("summarize this image") || lower.contains("ছবির লেখা পড়ে") || lower.contains("ছবির লেখা") ||
+            lower.contains("तस्वीर में क्या लिखा है") || lower.contains("ocr") ->
+                ToolDecision(true, "VisionOcr", userInput, "Advanced Vision and OCR extraction")
+
+            // Universal Phone Search (Local apps, contacts, tasks, memories, notifications)
+            lower.startsWith("search phone") || lower.startsWith("search on phone") || lower.startsWith("phone search") ||
+            lower.startsWith("find on phone") || lower.startsWith("find in phone") || lower.startsWith("search my phone") ||
+            lower.contains("search contact") || lower.contains("find contact") || lower.contains("search app") ||
+            lower.contains("find app") || lower.contains("search memory") || lower.contains("search tasks") ||
+            lower.startsWith("find ") || lower.startsWith("locate ") || lower.startsWith("lookup ") ||
+            lower.contains("ফোনে সার্চ") || lower.contains("ফোন সার্চ") || lower.contains("খোঁজো") || lower.contains("ढूंढो") ->
+                ToolDecision(true, "UniversalSearch", userInput, "Local universal phone index search")
 
             // Web Search
             lower.startsWith("search for") || lower.startsWith("google ") || lower.startsWith("search ") ->

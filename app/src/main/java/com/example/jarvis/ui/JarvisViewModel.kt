@@ -1,6 +1,7 @@
 package com.example.jarvis.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jarvis.auth.AuthManager
@@ -11,11 +12,19 @@ import com.example.jarvis.model.ActivityType
 import com.example.jarvis.model.ChatMessage
 import com.example.jarvis.model.JarvisState
 import com.example.jarvis.model.MessageSender
+import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.model.SafetyRequest
 import com.example.jarvis.privacy.PrivacyAuditor
 import com.example.jarvis.provider.JarvisUnifiedAIProvider
 import com.example.jarvis.storage.JarvisRepository
 import com.example.jarvis.ui.components.NavTab
+import com.example.jarvis.vision.JarvisVisionEngine
+import com.example.jarvis.vision.LocalVisionProvider
+import com.example.jarvis.vision.VisionActionType
+import com.example.jarvis.vision.VisionDerivedAction
+import com.example.jarvis.vision.VisionEngine
+import com.example.jarvis.vision.VisionProvider
+import com.example.jarvis.vision.VisionResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +42,10 @@ enum class SubScreen {
     VOICE_SETUP,
     VOICE_SELECTION,
     ACCOUNT,
-    ABOUT
+    ABOUT,
+    DIAGNOSTICS,
+    NOTIFICATIONS,
+    SEARCH
 }
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
@@ -84,12 +96,23 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val timers = repository.timers
     val activityLogs = repository.activityLogs
     val visionScans = repository.visionScans
+    val notifications = repository.notifications
     val settings = repository.settings
     val telemetry = bridge.telemetry
     val isListening = bridge.isListening
     val liveTranscript = bridge.liveTranscript
     val isSpeaking = bridge.isSpeaking
     val speechSupported = bridge.speechSupported
+
+    // Vision and OCR state
+    private val _activeVisionResult = MutableStateFlow<VisionResult?>(null)
+    val activeVisionResult: StateFlow<VisionResult?> = _activeVisionResult.asStateFlow()
+
+    private val _activeVisionUri = MutableStateFlow<Uri?>(null)
+    val activeVisionUri: StateFlow<Uri?> = _activeVisionUri.asStateFlow()
+
+    val visionEngine: VisionEngine = JarvisVisionEngine()
+    val visionProvider: VisionProvider = LocalVisionProvider(visionEngine)
 
     init {
         // Continuous speech-to-speech loop: return to listening upon speech completion
@@ -254,6 +277,77 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun copyToClipboard(text: String) {
         bridge.copyToClipboard("JARVIS_COPY", text)
         repository.logActivity("Clipboard Copy", text.take(30), ActivityType.TOOL_EXECUTION)
+    }
+
+    fun setActiveVisionContext(result: VisionResult, uri: Uri?) {
+        _activeVisionResult.value = result
+        _activeVisionUri.value = uri
+        brain.activeVisionResult = result
+        repository.logActivity(
+            "Vision Analyzed",
+            "Extracted ${result.extractedText.length} chars (Sensitive: ${result.containsSensitiveData})",
+            ActivityType.TOOL_EXECUTION
+        )
+    }
+
+    fun clearVisionContext() {
+        _activeVisionResult.value = null
+        _activeVisionUri.value = null
+        brain.activeVisionResult = null
+    }
+
+    fun askJarvisAboutVision(prompt: String) {
+        _activeSubScreen.value = null
+        _currentTab.value = NavTab.CHAT
+        sendUserMessage(prompt)
+    }
+
+    fun executeVisionDerivedAction(action: VisionDerivedAction) {
+        when (action.type) {
+            VisionActionType.DIAL_PHONE -> {
+                val assessment = com.example.jarvis.safety.RiskEngine.assessAction("PhoneCall", action.payload, RiskLevel.CONFIRMATION)
+                val safetyReq = com.example.jarvis.safety.RiskEngine.buildSafetyRequest(
+                    toolName = "PhoneCall",
+                    actionPayload = action.payload,
+                    reason = assessment.reason,
+                    riskLevel = RiskLevel.CONFIRMATION,
+                    onConfirm = {
+                        bridge.makePhoneCall(action.payload)
+                        repository.logActivity("Voice Call Dispatched", action.payload, ActivityType.TOOL_EXECUTION, RiskLevel.CONFIRMATION)
+                    },
+                    onCancel = {
+                        dismissSafetyDialog()
+                    }
+                )
+                _safetyRequest.value = safetyReq
+            }
+            VisionActionType.SEARCH_PHONE -> {
+                openSubScreen(SubScreen.SEARCH)
+            }
+            VisionActionType.OPEN_URL -> {
+                val assessment = com.example.jarvis.safety.RiskEngine.assessAction("OpenUrl", action.payload, RiskLevel.CONFIRMATION)
+                val safetyReq = com.example.jarvis.safety.RiskEngine.buildSafetyRequest(
+                    toolName = "OpenUrl",
+                    actionPayload = action.payload,
+                    reason = assessment.reason,
+                    riskLevel = RiskLevel.CONFIRMATION,
+                    onConfirm = {
+                        bridge.openUrl(action.payload)
+                        repository.logActivity("URL Launched", action.payload, ActivityType.TOOL_EXECUTION, RiskLevel.CONFIRMATION)
+                    },
+                    onCancel = {
+                        dismissSafetyDialog()
+                    }
+                )
+                _safetyRequest.value = safetyReq
+            }
+            VisionActionType.SEND_EMAIL -> {
+                bridge.openUrl("mailto:${action.payload}")
+            }
+            VisionActionType.COPY_TEXT -> {
+                copyToClipboard(action.payload)
+            }
+        }
     }
 
     override fun onCleared() {

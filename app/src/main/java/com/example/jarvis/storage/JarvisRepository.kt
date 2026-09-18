@@ -13,11 +13,15 @@ import com.example.jarvis.model.MessageSender
 import com.example.jarvis.model.ProviderSettings
 import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.model.VisionScan
+import com.example.jarvis.notification.JarvisNotification
+import com.example.jarvis.notification.NotificationCategory
+import com.example.jarvis.notification.NotificationPriority
 import com.example.jarvis.security.EncryptedStorage
 import com.example.jarvis.security.SensitiveDataFilter
 import com.example.jarvis.storage.db.ActivityLogEntity
 import com.example.jarvis.storage.db.JarvisDatabase
 import com.example.jarvis.storage.db.MemoryEntity
+import com.example.jarvis.storage.db.NotificationLogEntity
 import com.example.jarvis.storage.db.TaskEntity
 import com.example.jarvis.tasks.JarvisAlarmScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +59,9 @@ class JarvisRepository(private val context: Context) {
 
     private val _visionScans = MutableStateFlow<List<VisionScan>>(emptyList())
     val visionScans: StateFlow<List<VisionScan>> = _visionScans.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<JarvisNotification>>(emptyList())
+    val notifications: StateFlow<List<JarvisNotification>> = _notifications.asStateFlow()
 
     private val _settings = MutableStateFlow(ProviderSettings())
     val settings: StateFlow<ProviderSettings> = _settings.asStateFlow()
@@ -159,6 +166,27 @@ class JarvisRepository(private val context: Context) {
                 }
             }
         }
+
+        scope.launch {
+            db.notificationDao().getRecentNotifications().collect { entities ->
+                _notifications.value = entities.map {
+                    val cat = try { NotificationCategory.valueOf(it.category) } catch (_: Exception) { NotificationCategory.OTHER }
+                    val prio = try { NotificationPriority.valueOf(it.priority) } catch (_: Exception) { NotificationPriority.NORMAL }
+                    JarvisNotification(
+                        id = it.id,
+                        packageName = it.packageName,
+                        appTitle = it.appTitle,
+                        title = it.title,
+                        text = it.text,
+                        timestamp = it.timestamp,
+                        category = cat,
+                        priority = prio,
+                        isOngoing = it.isOngoing,
+                        groupKey = it.groupKey
+                    )
+                }
+            }
+        }
     }
 
     private fun loadMessages() {
@@ -252,10 +280,10 @@ class JarvisRepository(private val context: Context) {
         prefs.edit().putString("saved_messages", array.toString()).apply()
     }
 
-    fun addMemory(title: String, content: String, category: String = "General") {
+    fun addMemory(title: String, content: String, category: String = "General"): Boolean {
         if (SensitiveDataFilter.containsSensitiveData(content)) {
             logActivity("Security Guard Alert", "Memory rejected: contained unencrypted credentials/card numbers.", ActivityType.SAFETY_ALERT, RiskLevel.RESTRICTED)
-            return
+            return false
         }
         val entity = MemoryEntity(
             title = title,
@@ -266,6 +294,33 @@ class JarvisRepository(private val context: Context) {
             db.memoryDao().insertMemory(entity)
         }
         logActivity("Memory Encoded", "Stored in Room: $title", ActivityType.SYSTEM_EVENT)
+        return true
+    }
+
+    fun searchMemories(query: String): List<MemoryItem> {
+        val trimmed = query.trim().lowercase()
+        if (trimmed.isBlank()) return _memories.value
+        val tokens = trimmed.split(" ").filter { it.length > 2 }
+        return _memories.value.filter { memory ->
+            val inTitle = memory.title.contains(trimmed, ignoreCase = true)
+            val inContent = memory.content.contains(trimmed, ignoreCase = true)
+            val inCategory = memory.category.contains(trimmed, ignoreCase = true)
+            val tokenMatch = tokens.isNotEmpty() && tokens.any { token ->
+                memory.title.contains(token, ignoreCase = true) || memory.content.contains(token, ignoreCase = true)
+            }
+            inTitle || inContent || inCategory || tokenMatch
+        }
+    }
+
+    fun deleteMemoriesMatching(query: String): Int {
+        val matches = searchMemories(query)
+        if (matches.isNotEmpty()) {
+            scope.launch {
+                matches.forEach { db.memoryDao().deleteMemoryById(it.id) }
+            }
+            logActivity("Memory Purged", "Deleted ${matches.size} items matching '$query'", ActivityType.SYSTEM_EVENT)
+        }
+        return matches.size
     }
 
     fun deleteMemory(id: String) {
@@ -413,6 +468,60 @@ class JarvisRepository(private val context: Context) {
             apply()
         }
         logActivity("Settings Updated", "AI Provider & speech config securely committed.", ActivityType.SYSTEM_EVENT)
+    }
+
+    fun clearNotifications() {
+        scope.launch {
+            db.notificationDao().clearAllNotifications()
+            com.example.jarvis.notification.JarvisNotificationListenerService.clearLiveBuffer()
+            _notifications.value = emptyList()
+        }
+        logActivity("Notification History Purged", "Cleared all stored notification intelligence records.", ActivityType.TOOL_EXECUTION)
+    }
+
+    fun deleteNotification(id: String) {
+        scope.launch {
+            db.notificationDao().deleteNotificationById(id)
+            _notifications.value = _notifications.value.filterNot { it.id == id }
+        }
+    }
+
+    suspend fun getRecentNotificationsSync(limit: Int = 50): List<JarvisNotification> {
+        return db.notificationDao().getRecentNotificationsSync(limit).map {
+            val cat = try { NotificationCategory.valueOf(it.category) } catch (_: Exception) { NotificationCategory.OTHER }
+            val prio = try { NotificationPriority.valueOf(it.priority) } catch (_: Exception) { NotificationPriority.NORMAL }
+            JarvisNotification(
+                id = it.id,
+                packageName = it.packageName,
+                appTitle = it.appTitle,
+                title = it.title,
+                text = it.text,
+                timestamp = it.timestamp,
+                category = cat,
+                priority = prio,
+                isOngoing = it.isOngoing,
+                groupKey = it.groupKey
+            )
+        }
+    }
+
+    suspend fun searchNotificationsSync(query: String): List<JarvisNotification> {
+        return db.notificationDao().searchNotificationsSync(query).map {
+            val cat = try { NotificationCategory.valueOf(it.category) } catch (_: Exception) { NotificationCategory.OTHER }
+            val prio = try { NotificationPriority.valueOf(it.priority) } catch (_: Exception) { NotificationPriority.NORMAL }
+            JarvisNotification(
+                id = it.id,
+                packageName = it.packageName,
+                appTitle = it.appTitle,
+                title = it.title,
+                text = it.text,
+                timestamp = it.timestamp,
+                category = cat,
+                priority = prio,
+                isOngoing = it.isOngoing,
+                groupKey = it.groupKey
+            )
+        }
     }
 
     fun wipeAllLocalData() {

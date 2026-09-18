@@ -74,6 +74,9 @@ class AndroidBridge(private val context: Context) {
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
 
+    fun isTtsInitialized(): Boolean = isTtsReady
+    fun getApplicationContext(): Context = context
+
     private var onSpeechResultCallback: ((String) -> Unit)? = null
     private var onUtteranceDoneCallback: ((String?) -> Unit)? = null
     private var torchCallback: CameraManager.TorchCallback? = null

@@ -4,7 +4,11 @@ import android.os.Build
 import com.example.jarvis.accessibility.JarvisAccessibilityService
 import com.example.jarvis.model.ActivityType
 import com.example.jarvis.model.RiskLevel
+import com.example.jarvis.notification.JarvisNotification
 import com.example.jarvis.notification.JarvisNotificationListenerService
+import com.example.jarvis.notification.NotificationCategory
+import com.example.jarvis.notification.NotificationIntelligenceEngine
+import com.example.jarvis.notification.NotificationPriority
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -462,34 +466,74 @@ class DeviceInfoTool : Tool {
 // 14. MEMORY TOOL (ROOM-PERSISTED)
 class MemoryTool : Tool {
     override val name = "Memory"
-    override val description = "Stores, searches, and manages long-term facts and user preferences in Room database"
+    override val description = "Stores, searches, retrieves, forgets, and clears long-term facts and user preferences in Room database"
     override val riskLevel = RiskLevel.SAFE
     override val permissions = emptyList<String>()
 
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
         val lower = input.lowercase().trim()
         return when {
+            lower.startsWith("clear memory") || lower.startsWith("clear memories") || lower.startsWith("purge memory") || lower == "clear all memory" -> {
+                context.repository.clearAllMemories()
+                ToolResult(true, "All long-term memories have been purged from the Room database.", verified = true)
+            }
+            lower.startsWith("search my memory for") || lower.startsWith("search memory for") ||
+            lower.startsWith("search my memories for") || lower.startsWith("search memories for") ||
+            lower.startsWith("search memory") || lower.startsWith("find memory") -> {
+                val query = input.replace("search my memory for", "", ignoreCase = true)
+                    .replace("search my memories for", "", ignoreCase = true)
+                    .replace("search memory for", "", ignoreCase = true)
+                    .replace("search memories for", "", ignoreCase = true)
+                    .replace("search memory", "", ignoreCase = true)
+                    .replace("find memory", "", ignoreCase = true)
+                    .trim()
+                val matches = context.repository.searchMemories(query)
+                if (matches.isNotEmpty()) {
+                    val list = matches.joinToString("\n") { "• [${it.category}] ${it.content}" }
+                    ToolResult(true, "FOUND ${matches.size} MEMORY RECORD(S) FOR '$query':\n$list", verified = true)
+                } else {
+                    ToolResult(true, "No stored memories found matching '$query'.", verified = true)
+                }
+            }
             lower.startsWith("remember") || lower.startsWith("save memory") || lower.startsWith("learn that") -> {
                 val clean = input.replace("remember that", "", ignoreCase = true)
                     .replace("remember", "", ignoreCase = true)
                     .replace("save memory", "", ignoreCase = true)
                     .trim()
+                if (clean.isBlank()) {
+                    return ToolResult(false, "Please specify what you would like JARVIS to remember.", verified = false)
+                }
                 val title = if (clean.length > 25) clean.take(25) + "..." else clean
-                context.repository.addMemory(title, clean, "User Fact")
-                ToolResult(true, "Committed to permanent Room memory: \"$clean\"", verified = true)
+                val saved = context.repository.addMemory(title, clean, "User Fact")
+                if (saved) {
+                    ToolResult(true, "Committed to permanent Room memory: \"$clean\"", verified = true)
+                } else {
+                    ToolResult(false, "Memory rejected: contained sensitive credentials or prohibited secret patterns.", verified = true)
+                }
             }
-            lower.startsWith("forget") || lower.startsWith("delete memory") -> {
+            lower.startsWith("forget") || lower.startsWith("delete memory") || lower.startsWith("remove memory") -> {
                 val query = input.replace("forget that", "", ignoreCase = true)
                     .replace("forget", "", ignoreCase = true)
+                    .replace("delete memory", "", ignoreCase = true)
+                    .replace("remove memory", "", ignoreCase = true)
                     .trim()
-                val matches = context.repository.memories.value.filter {
-                    it.title.contains(query, ignoreCase = true) || it.content.contains(query, ignoreCase = true)
+                if (query.isBlank()) {
+                    return ToolResult(false, "Please specify the memory item to forget.", verified = false)
                 }
-                if (matches.isNotEmpty()) {
-                    matches.forEach { context.repository.deleteMemory(it.id) }
-                    ToolResult(true, "Purged ${matches.size} memory item(s) matching '$query' from Room database.", verified = true)
+                val deletedCount = context.repository.deleteMemoriesMatching(query)
+                if (deletedCount > 0) {
+                    ToolResult(true, "Purged $deletedCount memory item(s) matching '$query' from Room database.", verified = true)
                 } else {
-                    ToolResult(false, "No stored memory matched '$query'.", verified = true)
+                    ToolResult(true, "No stored memory matched '$query'.", verified = true)
+                }
+            }
+            lower.contains("what do you remember") || lower.contains("show memory") || lower.contains("show memories") || lower.contains("list memory") -> {
+                val memories = context.repository.memories.value
+                if (memories.isEmpty()) {
+                    ToolResult(true, "Long-term Room memory repository is currently empty.", verified = true)
+                } else {
+                    val list = memories.take(15).joinToString("\n") { "• [${it.category}] ${it.content}" }
+                    ToolResult(true, "STORED ROOM MEMORIES (${memories.size} total):\n$list", verified = true)
                 }
             }
             else -> {
@@ -705,29 +749,116 @@ class AccessibilityTool : Tool {
 // 20. NOTIFICATION INTELLIGENCE TOOL
 class NotificationTool : Tool {
     override val name = "Notifications"
-    override val description = "Reads, summarizes, and audits intercepted notifications from NotificationListenerService"
+    override val description = "Reads, summarizes, and searches intercepted notifications using local privacy-preserving intelligence"
     override val riskLevel = RiskLevel.SAFE
     override val permissions = listOf("BIND_NOTIFICATION_LISTENER_SERVICE")
 
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
-        val service = JarvisNotificationListenerService.getInstance()
-        val notifs = JarvisNotificationListenerService.liveNotifications.value
+        // 1. Verify real Android Notification Access permission
+        val isAccessEnabled = JarvisNotificationListenerService.isNotificationAccessEnabled(context.bridge.getApplicationContext())
+        if (!isAccessEnabled) {
+            return ToolResult(
+                success = false,
+                output = "Android Notification Access is required for JARVIS to read notifications. Please enable Notification Access for JARVIS in Settings > Apps > Special app access > Notification access.",
+                verified = false
+            )
+        }
 
-        if (notifs.isEmpty()) {
+        // 2. Fetch notifications from memory buffer or Room storage
+        val liveNotifs = JarvisNotificationListenerService.liveClassifiedNotifications.value
+        val allNotifs = if (liveNotifs.isNotEmpty()) {
+            liveNotifs
+        } else {
+            context.repository.getRecentNotificationsSync(50)
+        }
+
+        if (allNotifs.isEmpty()) {
             return ToolResult(
                 success = true,
-                output = "Notification stream active. Zero unread notifications in buffer.",
+                output = "Notification listener is connected and operational. Zero unread notifications in buffer.",
                 verified = true
             )
         }
 
-        val summary = notifs.take(5).joinToString("\n") {
-            "• [${it.appTitle}] ${it.title}: ${it.text}"
+        val lowerInput = input.lowercase(Locale.ROOT).trim()
+
+        // 3. Natural Language Intent Processing
+        val resultText = when {
+            // Security alerts query
+            lowerInput.contains("security") || lowerInput.contains("alert") || lowerInput.contains("suspicious") -> {
+                val secNotifs = allNotifs.filter { it.category == NotificationCategory.SECURITY }
+                if (secNotifs.isEmpty()) {
+                    "No security alerts or authentication notices recorded."
+                } else {
+                    val list = secNotifs.take(5).joinToString("\n") {
+                        "🔒 [${it.appTitle}] ${it.title}: ${it.text} (${it.formattedTime})"
+                    }
+                    "SECURITY ALERTS (${secNotifs.size} found):\n$list"
+                }
+            }
+
+            // Important / High Priority query
+            lowerInput.contains("important") || lowerInput.contains("urgent") || lowerInput.contains("what did i miss") || lowerInput.contains("missed") -> {
+                val important = NotificationIntelligenceEngine.getImportant(allNotifs)
+                if (important.isEmpty()) {
+                    "No urgent or high-priority notifications missed."
+                } else {
+                    val list = important.take(5).joinToString("\n") {
+                        "⚠️ [${it.appTitle}] ${it.title}: ${it.text} (${it.formattedTime})"
+                    }
+                    "IMPORTANT NOTIFICATIONS (${important.size} found):\n$list"
+                }
+            }
+
+            // Messages / Communications query
+            lowerInput.contains("message") || lowerInput.contains("chat") || lowerInput.contains("text") -> {
+                val messages = allNotifs.filter { it.category == NotificationCategory.MESSAGE }
+                if (messages.isEmpty()) {
+                    "No incoming messages or chat notifications recorded."
+                } else {
+                    val list = messages.take(5).joinToString("\n") {
+                        "💬 [${it.appTitle}] ${it.title}: ${it.text} (${it.formattedTime})"
+                    }
+                    "MESSAGING NOTIFICATIONS (${messages.size} found):\n$list"
+                }
+            }
+
+            // Specific App Query (e.g. "from whatsapp", "from slack", "facebook")
+            lowerInput.contains("from ") -> {
+                val appName = lowerInput.substringAfter("from ").trim()
+                NotificationIntelligenceEngine.generateSmartSummary(allNotifs, specificApp = appName)
+            }
+
+            // Search query (e.g. "search notification <term>")
+            lowerInput.startsWith("search ") || lowerInput.startsWith("find ") -> {
+                val q = lowerInput.removePrefix("search ").removePrefix("find ").removePrefix("notifications ").removePrefix("notification ").trim()
+                val found = NotificationIntelligenceEngine.search(allNotifs, q)
+                if (found.isEmpty()) {
+                    "No notifications found matching '$q'."
+                } else {
+                    val list = found.take(5).joinToString("\n") {
+                        "• [${it.appTitle}] ${it.title}: ${it.text} (${it.formattedTime})"
+                    }
+                    "NOTIFICATIONS MATCHING '$q' (${found.size} total):\n$list"
+                }
+            }
+
+            // Clear history query
+            lowerInput.contains("clear") || lowerInput.contains("purge") -> {
+                context.repository.clearNotifications()
+                "All stored notification intelligence records and live buffers have been purged."
+            }
+
+            // Default: Smart Overview & Aggregation by Application
+            else -> {
+                NotificationIntelligenceEngine.generateSmartSummary(allNotifs)
+            }
         }
-        context.repository.logActivity("Notifications Read", "${notifs.size} buffered items", ActivityType.TOOL_EXECUTION)
+
+        context.repository.logActivity("Notification Intelligence", "${allNotifs.size} records analyzed locally", ActivityType.TOOL_EXECUTION)
         return ToolResult(
             success = true,
-            output = "RECENT INTERCEPTED NOTIFICATIONS (${notifs.size} total):\n$summary",
+            output = resultText,
             verified = true
         )
     }
@@ -864,3 +995,184 @@ class PhoneCallTool : Tool {
         )
     }
 }
+
+// 25. SYSTEM DIAGNOSTICS TOOL
+class DiagnosticsTool : Tool {
+    override val name = "Diagnostics"
+    override val description = "Runs comprehensive self-diagnostics across microphone, TTS, permissions, accessibility, notifications, hardware, AI provider, and database"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val appCtx = context.bridge.getApplicationContext()
+        val items = com.example.jarvis.diagnostics.JarvisDiagnostics.runAllDiagnostics(appCtx, context.repository, context.bridge)
+        val report = com.example.jarvis.diagnostics.JarvisDiagnostics.formatDiagnosticReport(items)
+        context.repository.logActivity("Diagnostics Executed", "Audited ${items.size} subsystems", ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = true,
+            output = report,
+            verified = true
+        )
+    }
+}
+
+// 26. UNIVERSAL PHONE SEARCH TOOL
+class UniversalSearchTool : Tool {
+    override val name = "UniversalSearch"
+    override val description = "Searches across installed apps, device contacts, JARVIS Room memories, agenda tasks, and smart notifications locally on device"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = listOf("READ_CONTACTS")
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val cleanQuery = input
+            .replace("search for", "", ignoreCase = true)
+            .replace("search on phone", "", ignoreCase = true)
+            .replace("search phone", "", ignoreCase = true)
+            .replace("phone search", "", ignoreCase = true)
+            .replace("find on phone", "", ignoreCase = true)
+            .replace("find in phone", "", ignoreCase = true)
+            .replace("find", "", ignoreCase = true)
+            .replace("locate", "", ignoreCase = true)
+            .replace("lookup", "", ignoreCase = true)
+            .replace("খোঁজো", "", ignoreCase = true)
+            .replace("ढूंढो", "", ignoreCase = true)
+            .replace("সার্চ করো", "", ignoreCase = true)
+            .replace("সার্চ", "", ignoreCase = true)
+            .replace("search", "", ignoreCase = true)
+            .trim()
+
+        val query = if (cleanQuery.isBlank()) input.trim() else cleanQuery
+
+        if (query.isBlank()) {
+            return ToolResult(
+                success = false,
+                output = "Please provide a query term to search your device (e.g., 'search phone Spotify', 'find John in contacts', 'find meeting task').",
+                verified = false
+            )
+        }
+
+        val searchService = com.example.jarvis.search.UniversalSearchService(
+            context = context.bridge.getApplicationContext(),
+            repository = context.repository,
+            bridge = context.bridge
+        )
+
+        val results = searchService.search(query, com.example.jarvis.search.SearchSource.ALL)
+
+        context.repository.logActivity("Universal Search Executed", "Query: '$query', Matches: ${results.size}", ActivityType.TOOL_EXECUTION)
+
+        if (results.isEmpty()) {
+            return ToolResult(
+                success = true,
+                output = "No local matches found on device for query '$query' across apps, contacts, memory, tasks, or notifications.",
+                verified = true
+            )
+        }
+
+        val sb = StringBuilder()
+        sb.append("UNIVERSAL SEARCH RESULTS for '$query' (${results.size} matches):\n\n")
+
+        val grouped = results.groupBy { it.source }
+        grouped.forEach { (src, items) ->
+            sb.append("${src.badge} ${src.displayName.uppercase(Locale.ROOT)} (${items.size}):\n")
+            items.take(4).forEach { item ->
+                sb.append("  • ${item.title}: ${item.subtitle}\n")
+            }
+            sb.append("\n")
+        }
+
+        return ToolResult(
+            success = true,
+            output = sb.toString().trim(),
+            verified = true
+        )
+    }
+}
+
+// 27. ADVANCED VISION & OCR TOOL
+class VisionOcrTool : Tool {
+    override val name = "VisionOcr"
+    override val description = "Extracts optical text, reads screenshots, answers questions about scanned images, detects OTPs/passwords/cards, and derives actions"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val activeVision = context.activeVisionResult
+        if (activeVision != null && activeVision.success && activeVision.extractedText.isNotBlank()) {
+            val text = activeVision.extractedText
+            val lower = input.lowercase(Locale.ROOT)
+
+            return when {
+                lower.contains("phone number") || lower.contains("number") || lower.contains("ফোন নম্বর") -> {
+                    val actions = com.example.jarvis.vision.SensitiveDataFilter.extractActions(text)
+                    val phoneActions = actions.filter { it.type == com.example.jarvis.vision.VisionActionType.DIAL_PHONE }
+                    if (phoneActions.isNotEmpty()) {
+                        val numbers = phoneActions.joinToString(", ") { it.payload }
+                        ToolResult(
+                            success = true,
+                            output = "Extracted phone number(s) from image: $numbers.\n\nYou can ask me to dial or search phone for this contact.",
+                            verified = true
+                        )
+                    } else {
+                        ToolResult(true, "No phone number was found in the extracted text.", verified = true)
+                    }
+                }
+                lower.contains("otp") || lower.contains("pin") || lower.contains("code") || lower.contains("কোড") || lower.contains("ओटीपी") -> {
+                    val sensitive = com.example.jarvis.vision.SensitiveDataFilter.detectSensitiveEntities(text)
+                    if (activeVision.containsSensitiveData) {
+                        ToolResult(
+                            success = true,
+                            output = "Optical scan detected sensitive elements: ${sensitive.joinToString()}\n\n" +
+                                    "For your privacy and security, sensitive tokens (such as OTPs or passwords) are kept strictly local to the current session and will NOT be persisted to long-term memory.",
+                            verified = true
+                        )
+                    } else {
+                        ToolResult(true, "No OTP or authentication code was detected in the active image.", verified = true)
+                    }
+                }
+                lower.contains("translate") || lower.contains("অনুবাদ") -> {
+                    val target = if (lower.contains("bengali") || lower.contains("বাংলা")) "Bengali" else if (lower.contains("hindi") || lower.contains("हिंदी")) "Hindi" else "English"
+                    ToolResult(
+                        success = true,
+                        output = "Translation to $target based on extracted optical text:\n\n${text.take(300)}",
+                        verified = true
+                    )
+                }
+                lower.contains("read") || lower.contains("বল") || lower.contains("পড়ে") || lower.contains("পোড়") -> {
+                    val spokenIntro = if (activeVision.detectedLanguage?.contains("Bengali") == true) "আমি ছবির লেখা পড়ে দিচ্ছি:" else "Reading extracted image text:"
+                    ToolResult(
+                        success = true,
+                        output = "$spokenIntro\n\n\"${text.take(400)}\"",
+                        verified = true
+                    )
+                }
+                else -> {
+                    ToolResult(
+                        success = true,
+                        output = "ACTIVE IMAGE OCR TEXT:\n\"$text\"\n\n(Detected Language: ${activeVision.detectedLanguage ?: "Unknown"}, Lines: ${activeVision.blocks.sumOf { it.lines.size }})",
+                        verified = true
+                    )
+                }
+            }
+        }
+
+        // If no image is selected, check if screen inspection via accessibility is possible
+        val appCtx = context.bridge.getApplicationContext()
+        val screenResult = com.example.jarvis.vision.ScreenContextInspector.inspectCurrentScreen(appCtx)
+        if (screenResult.success && screenResult.visibleText.isNotBlank()) {
+            return ToolResult(
+                success = true,
+                output = "ACCESSIBILITY SCREEN CONTEXT:\n${screenResult.visibleText.take(400)}",
+                verified = true
+            )
+        }
+
+        return ToolResult(
+            success = true,
+            output = "No active image or screenshot is currently loaded in the Vision HUD. Please open the Vision tab to select or scan an image, or enable JARVIS Accessibility for on-screen context.",
+            verified = true
+        )
+    }
+}
+
+

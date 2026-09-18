@@ -1,6 +1,12 @@
 package com.example.jarvis.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,10 +30,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -44,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -53,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import com.example.jarvis.model.ChatMessage
 import com.example.jarvis.model.JarvisState
 import com.example.jarvis.model.MessageSender
+import com.example.jarvis.model.RiskLevel
+import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorder
 import com.example.jarvis.ui.theme.JarvisBorderSubtle
@@ -62,7 +76,6 @@ import com.example.jarvis.ui.theme.JarvisElectricBlue
 import com.example.jarvis.ui.theme.JarvisGreen
 import com.example.jarvis.ui.theme.JarvisRed
 import com.example.jarvis.ui.theme.JarvisSurface
-import com.example.jarvis.ui.theme.JarvisSurfaceElevated
 import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
@@ -78,13 +91,15 @@ fun ChatScreen(
     onCopyMessage: (String) -> Unit,
     onSpeakMessage: (String) -> Unit,
     onRetryMessage: () -> Unit,
-    onClearChat: () -> Unit
+    onClearChat: () -> Unit,
+    onVoiceClick: () -> Unit = {},
+    onVisionClick: () -> Unit = {}
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
     // Auto-scroll to bottom when messages update
-    LaunchedEffect(messages.size, messages.lastOrNull()?.text) {
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text, jarvisState) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
@@ -92,11 +107,12 @@ fun ChatScreen(
 
     val quickPrompts = listOf(
         "Run full device telemetry scan",
-        "Calculate 25% of 1450",
+        "Check battery and radio frequencies",
         "What time and date is it?",
-        "Remember that server backup is at 0400",
-        "Search for quantum computing advancements",
-        "Weather forecast for current location"
+        "Remember that meeting is at 14:00",
+        "Toggle flashlight",
+        "Show current audio volume",
+        "Summarize recent security logs"
     )
 
     Column(
@@ -105,11 +121,18 @@ fun ChatScreen(
             .background(JarvisBackground)
             .imePadding()
     ) {
-        // Chat Header Bar with Clear & Status
+        // Chat Header Bar with Neural Matrix Status & Controls
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(JarvisSurface)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xEE0B1424),
+                            Color(0xDD060B14)
+                        )
+                    )
+                )
                 .border(0.5.dp, JarvisBorderSubtle)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -123,16 +146,35 @@ fun ChatScreen(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (jarvisState == JarvisState.THINKING) JarvisElectricBlue else JarvisGreen)
+                        .background(
+                            when (jarvisState) {
+                                JarvisState.THINKING -> JarvisElectricBlue
+                                JarvisState.SPEAKING -> JarvisGreen
+                                JarvisState.ERROR -> JarvisRed
+                                else -> JarvisCyan
+                            }
+                        )
                 )
-                Text(
-                    text = "NEURAL CHAT MATRIX",
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = JarvisCyan
-                )
+                Column {
+                    Text(
+                        text = "NEURAL CHAT CONSOLE",
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp,
+                        color = JarvisCyan
+                    )
+                    Text(
+                        text = when (jarvisState) {
+                            JarvisState.THINKING -> "Synthesizing response..."
+                            JarvisState.SPEAKING -> "Transmitting response..."
+                            else -> "Encrypted Stream • Active"
+                        },
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = JarvisTextDim
+                    )
+                }
             }
 
             Row(
@@ -141,7 +183,7 @@ fun ChatScreen(
             ) {
                 IconButton(
                     onClick = onRetryMessage,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
@@ -153,7 +195,7 @@ fun ChatScreen(
 
                 IconButton(
                     onClick = onClearChat,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
@@ -171,9 +213,9 @@ fun ChatScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 14.dp),
             contentPadding = PaddingValues(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
                 ChatMessageBubble(
@@ -183,7 +225,7 @@ fun ChatScreen(
                 )
             }
 
-            // Thinking indicator item
+            // Thinking & Tool Execution Indicator
             if (jarvisState == JarvisState.THINKING) {
                 item {
                     ThinkingIndicatorBubble()
@@ -191,10 +233,11 @@ fun ChatScreen(
             }
         }
 
-        // Quick Prompt Chips
+        // Quick Prompt Suggestions
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Color(0x66060B14))
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -202,11 +245,9 @@ fun ChatScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF0C1424))
+                        .background(Color(0xFF091424))
                         .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(14.dp))
-                        .clickable {
-                            inputText = prompt
-                        }
+                        .clickable { inputText = prompt }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
@@ -219,63 +260,113 @@ fun ChatScreen(
             }
         }
 
-        // Message Input Bar
-        Row(
+        // Message Input Bar with Attachments, Mic & Send
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(JarvisSurface)
-                .border(0.5.dp, JarvisBorderSubtle)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                placeholder = {
-                    Text(
-                        text = "Transmit command to JARVIS...",
-                        fontSize = 13.sp,
-                        color = JarvisTextDim
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xEE0B1424),
+                            Color(0xF5060A14)
+                        )
                     )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("chat_input_field"),
-                shape = RoundedCornerShape(20.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = JarvisCyan,
-                    unfocusedBorderColor = JarvisBorder,
-                    focusedTextColor = JarvisTextPrimary,
-                    unfocusedTextColor = JarvisTextPrimary,
-                    cursorColor = JarvisCyan,
-                    focusedContainerColor = Color(0xFF090E1A),
-                    unfocusedContainerColor = Color(0xFF090E1A)
-                ),
-                maxLines = 4
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = {
-                    if (inputText.isNotBlank()) {
-                        val textToSend = inputText.trim()
-                        inputText = ""
-                        onSendMessage(textToSend)
-                    }
-                },
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(if (inputText.isNotBlank()) JarvisCyan else Color(0xFF162032))
-                    .testTag("chat_send_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = "Send",
-                    tint = if (inputText.isNotBlank()) Color.Black else JarvisTextDim,
-                    modifier = Modifier.size(18.dp)
                 )
+                .border(0.5.dp, JarvisBorderSubtle)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Optical Vision HUD / Attachment Button
+                IconButton(
+                    onClick = onVisionClick,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0D1B2E))
+                        .border(0.5.dp, JarvisBorderSubtle, CircleShape)
+                        .testTag("chat_vision_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = "Attach / OCR Vision",
+                        tint = JarvisCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Main Text Input
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    placeholder = {
+                        Text(
+                            text = "Transmit directive to JARVIS...",
+                            fontSize = 12.sp,
+                            color = JarvisTextDim
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("chat_input_field"),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisCyan,
+                        unfocusedBorderColor = JarvisBorder,
+                        focusedTextColor = JarvisTextPrimary,
+                        unfocusedTextColor = JarvisTextPrimary,
+                        cursorColor = JarvisCyan,
+                        focusedContainerColor = Color(0xFF080F1C),
+                        unfocusedContainerColor = Color(0xFF080F1C)
+                    ),
+                    maxLines = 4
+                )
+
+                // Voice / Mic shortcut button
+                IconButton(
+                    onClick = onVoiceClick,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0D1B2E))
+                        .border(0.5.dp, JarvisBorderSubtle, CircleShape)
+                        .testTag("chat_mic_shortcut_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Switch to Voice",
+                        tint = JarvisCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Send Button
+                IconButton(
+                    onClick = {
+                        if (inputText.isNotBlank()) {
+                            val textToSend = inputText.trim()
+                            inputText = ""
+                            onSendMessage(textToSend)
+                        }
+                    },
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (inputText.isNotBlank()) JarvisCyan else Color(0xFF142033)
+                        )
+                        .testTag("chat_send_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = "Send",
+                        tint = if (inputText.isNotBlank()) Color.Black else JarvisTextDim,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
@@ -295,34 +386,80 @@ private fun ChatMessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // Sender Label & Tag
+        // Sender Metadata Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
         ) {
             Text(
-                text = if (isUser) "YOU" else "J.A.R.V.I.S.",
+                text = if (isUser) "OPERATOR" else "J.A.R.V.I.S.",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp,
                 color = if (isUser) JarvisTextSecondary else JarvisCyan
             )
-            message.toolCallName?.let {
+
+            // Tool Execution Status Badge
+            message.toolCallName?.let { toolName ->
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF0F2338))
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF0B1E34))
+                        .border(0.5.dp, JarvisCyan.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
                 ) {
-                    Text(
-                        text = "TOOL: $it",
-                        fontSize = 8.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = JarvisCyanBright
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            tint = JarvisCyan,
+                            modifier = Modifier.size(9.dp)
+                        )
+                        Text(
+                            text = "TOOL: $toolName",
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = JarvisCyanBright
+                        )
+                    }
                 }
             }
+
+            // Risky Action / Confirmation Badge
+            if (message.toolRiskLevel == RiskLevel.CONFIRMATION) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(JarvisAmber.copy(alpha = 0.15f))
+                        .border(0.5.dp, JarvisAmber, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = JarvisAmber,
+                            modifier = Modifier.size(9.dp)
+                        )
+                        Text(
+                            text = "SECURITY CHECKPOINT",
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = JarvisAmber
+                        )
+                    }
+                }
+            }
+
             Text(
                 text = timeStr,
                 fontSize = 9.sp,
@@ -331,39 +468,81 @@ private fun ChatMessageBubble(
             )
         }
 
-        // Bubble Container
+        // Bubble Surface Container
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.88f)
+                .fillMaxWidth(if (isUser) 0.85f else 0.92f)
                 .clip(
                     RoundedCornerShape(
-                        topStart = 14.dp,
-                        topEnd = 14.dp,
-                        bottomStart = if (isUser) 14.dp else 2.dp,
-                        bottomEnd = if (isUser) 2.dp else 14.dp
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isUser) 16.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 16.dp
                     )
                 )
                 .background(
-                    if (isUser) Color(0xFF122038) else Color(0xFF090F1C)
+                    if (isUser) {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF101B2E),
+                                Color(0xFF0C1424)
+                            )
+                        )
+                    } else {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF0B1424),
+                                Color(0xFF060B14)
+                            )
+                        )
+                    }
                 )
                 .border(
-                    width = 0.5.dp,
-                    color = if (isUser) JarvisBorderSubtle else JarvisBorder,
-                    shape = RoundedCornerShape(14.dp)
+                    width = 1.dp,
+                    color = if (isUser) JarvisBorderSubtle else JarvisCyan.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isUser) 16.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 16.dp
+                    )
                 )
-                .padding(12.dp)
+                .padding(14.dp)
         ) {
             Column {
+                // Streaming / Typing indicator pulse
+                if (message.isStreaming) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(JarvisCyanBright)
+                        )
+                        Text(
+                            text = "STREAMING NEURAL RESPONSE...",
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = JarvisCyan
+                        )
+                    }
+                }
+
+                // Message Text
                 Text(
                     text = message.text,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
+                    lineHeight = 19.sp,
                     color = if (isUser) JarvisTextPrimary else JarvisCyanBright
                 )
 
                 // Actions row for JARVIS responses
                 if (!isUser && !message.isStreaming) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
@@ -371,24 +550,24 @@ private fun ChatMessageBubble(
                     ) {
                         IconButton(
                             onClick = onCopy,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "Copy message",
                                 tint = JarvisTextDim,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                         IconButton(
                             onClick = onSpeak,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.VolumeUp,
                                 contentDescription = "Speak message",
                                 tint = JarvisCyan,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -400,14 +579,25 @@ private fun ChatMessageBubble(
 
 @Composable
 private fun ThinkingIndicatorBubble() {
+    val infiniteTransition = rememberInfiniteTransition(label = "thinking_pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "thinking_alpha"
+    )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF090F1C))
-            .border(0.5.dp, JarvisBorder, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF091222))
+            .border(1.dp, JarvisCyan.copy(alpha = alpha * 0.6f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(14.dp),
@@ -415,10 +605,10 @@ private fun ThinkingIndicatorBubble() {
             color = JarvisCyan
         )
         Text(
-            text = "JARVIS is computing response...",
+            text = "JARVIS is synthesizing response...",
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            color = JarvisCyan
+            color = JarvisCyanBright
         )
     }
 }

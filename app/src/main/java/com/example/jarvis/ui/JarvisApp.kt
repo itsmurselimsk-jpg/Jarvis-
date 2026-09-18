@@ -97,6 +97,7 @@ fun JarvisApp(
     val timers by viewModel.timers.collectAsState()
     val logs by viewModel.activityLogs.collectAsState()
     val scans by viewModel.visionScans.collectAsState()
+    val activeVisionResult by viewModel.activeVisionResult.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
     val liveTranscript by viewModel.liveTranscript.collectAsState()
@@ -277,7 +278,13 @@ fun JarvisApp(
                                 SubScreen.VISION -> VisionScreen(
                                     scans = scans,
                                     aiProvider = viewModel.aiProvider,
-                                    onAddScan = { viewModel.repository.addVisionScan(it) }
+                                    onAddScan = { viewModel.repository.addVisionScan(it) },
+                                    visionEngine = viewModel.visionEngine,
+                                    activeResult = activeVisionResult,
+                                    onSetActiveResult = { res, uri -> viewModel.setActiveVisionContext(res, uri) },
+                                    onExecuteAction = { action -> viewModel.executeVisionDerivedAction(action) },
+                                    onAskJarvis = { prompt -> viewModel.askJarvisAboutVision(prompt) },
+                                    onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
                                 )
                                 SubScreen.PRIVACY -> PrivacyScreen(
                                     auditor = viewModel.privacyAuditor,
@@ -302,6 +309,25 @@ fun JarvisApp(
                                     }
                                 )
                                 SubScreen.ABOUT -> AboutScreen()
+                                SubScreen.DIAGNOSTICS -> com.example.jarvis.ui.screens.DiagnosticsScreen(
+                                    repository = viewModel.repository,
+                                    bridge = viewModel.bridge
+                                )
+                                SubScreen.NOTIFICATIONS -> com.example.jarvis.ui.screens.NotificationIntelligenceScreen(
+                                    repository = viewModel.repository,
+                                    onOpenNotificationSettings = {
+                                        viewModel.bridge.getApplicationContext().startActivity(
+                                            com.example.jarvis.notification.JarvisNotificationListenerService.getNotificationSettingsIntent()
+                                        )
+                                    }
+                                )
+                                SubScreen.SEARCH -> com.example.jarvis.ui.screens.UniversalSearchScreen(
+                                    repository = viewModel.repository,
+                                    bridge = viewModel.bridge,
+                                    onOpenSubScreen = { subScreen ->
+                                        viewModel.openSubScreen(subScreen)
+                                    }
+                                )
                             }
                         }
                     } else {
@@ -310,6 +336,10 @@ fun JarvisApp(
                             NavTab.HOME -> HomeScreen(
                                 jarvisState = jarvisState,
                                 telemetry = telemetry,
+                                tasks = tasks,
+                                memories = memories,
+                                logs = logs,
+                                settings = settings,
                                 onVoiceClick = {
                                     viewModel.setTab(NavTab.VOICE)
                                 },
@@ -334,6 +364,15 @@ fun JarvisApp(
                                 onBridgeClick = {
                                     viewModel.openSubScreen(SubScreen.BRIDGE)
                                 },
+                                onSearchClick = {
+                                    viewModel.openSubScreen(SubScreen.SEARCH)
+                                },
+                                onTasksClick = {
+                                    viewModel.setTab(NavTab.TASKS)
+                                },
+                                onSettingsClick = {
+                                    viewModel.setTab(NavTab.SETTINGS)
+                                },
                                 onQuickCommand = { cmd ->
                                     viewModel.setTab(NavTab.CHAT)
                                     viewModel.sendUserMessage(cmd)
@@ -341,6 +380,18 @@ fun JarvisApp(
                                 onStateChange = { newState ->
                                     viewModel.setJarvisState(newState)
                                 }
+                            )
+
+                            NavTab.CHAT -> ChatScreen(
+                                messages = messages,
+                                jarvisState = jarvisState,
+                                onSendMessage = { viewModel.sendUserMessage(it) },
+                                onCopyMessage = { viewModel.copyToClipboard(it) },
+                                onSpeakMessage = { viewModel.speakText(it) },
+                                onRetryMessage = { viewModel.retryLastMessage() },
+                                onClearChat = { viewModel.repository.clearMessages() },
+                                onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
+                                onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) }
                             )
 
                             NavTab.VOICE -> com.example.jarvis.ui.screens.VoiceScreen(
@@ -369,19 +420,21 @@ fun JarvisApp(
                                 onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) }
                             )
 
-                            NavTab.CHAT -> ChatScreen(
-                                messages = messages,
-                                jarvisState = jarvisState,
-                                onSendMessage = { viewModel.sendUserMessage(it) },
-                                onCopyMessage = { viewModel.copyToClipboard(it) },
-                                onSpeakMessage = { viewModel.speakText(it) },
-                                onRetryMessage = { viewModel.retryLastMessage() },
-                                onClearChat = { viewModel.repository.clearMessages() }
-                            )
-
-                            NavTab.TOOLS -> ToolsScreen(
-                                tools = viewModel.brain.registry.getAllTools(),
-                                toolContext = viewModel.toolContext
+                            NavTab.TASKS -> TasksScreen(
+                                tasks = tasks,
+                                timers = timers,
+                                onToggleTask = { viewModel.repository.toggleTask(it) },
+                                onDeleteTask = { viewModel.repository.deleteTask(it) },
+                                onAddTask = { title, notes, priority ->
+                                    viewModel.repository.addTask(title, notes, priority)
+                                },
+                                onAddTimer = { label, seconds ->
+                                    viewModel.repository.addTimer(label, seconds)
+                                },
+                                onDeleteTimer = { viewModel.repository.deleteTimer(it) },
+                                onUpdateTimer = { id, remaining, running ->
+                                    viewModel.repository.updateTimer(id, remaining, running)
+                                }
                             )
 
                             NavTab.SETTINGS -> SettingsScreen(
@@ -394,7 +447,10 @@ fun JarvisApp(
                                 onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
                                 onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
                                 onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
-                                onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) }
+                                onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
+                                onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
+                                onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
+                                onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) }
                             )
                         }
                     }
