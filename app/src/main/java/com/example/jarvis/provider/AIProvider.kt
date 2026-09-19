@@ -396,9 +396,9 @@ object LocalNeuralBrainProvider {
                 ToolDecision(true, "MediaControl", userInput, "Media key event request")
 
             // App Launcher
-            lower.startsWith("open app") || lower.startsWith("launch app") || lower.startsWith("open ") || lower.startsWith("launch ") ||
-            lower.contains("kholo") || lower.contains("खोलो") || lower.contains("খোলো") ||
-            lower.contains("facebook") || lower.contains("whatsapp") || lower.contains("ফেসবুক") || lower.contains("फेसबुक") ->
+            lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ") ||
+            lower.contains("kholo") || lower.contains("khol") || lower.contains("open karo") ||
+            lower.contains("launch karo") || lower.contains("start karo") || lower.contains("खोलो") || lower.contains("খোলো") ->
                 ToolDecision(true, "AppLauncher", userInput, "Application launch request")
 
             // Open URL
@@ -416,6 +416,11 @@ object LocalNeuralBrainProvider {
             // Diagnostics / Self Test
             lower.contains("diagnostics") || lower.contains("self test") || lower.contains("system status") || lower.contains("health check") || lower.contains("run diagnostics") ->
                 ToolDecision(true, "Diagnostics", userInput, "Comprehensive subsystem diagnostic self-test")
+
+            // Holographic Orb Core / Ultron Matrix
+            lower.contains("orb") || lower.contains("hologram") || lower.contains("holographic") ||
+            lower.contains("ultron") || lower.contains("overclock core") || lower.contains("spin orb") ->
+                ToolDecision(true, "OrbCore", userInput, "Holographic Cybernetic Core control and telemetry")
 
             // Device Info / Hardware
             lower.contains("device info") || lower.contains("hardware") || lower.contains("specifications") || lower.contains("system telemetry") ->

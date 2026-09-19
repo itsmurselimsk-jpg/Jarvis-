@@ -219,18 +219,36 @@ fun HomeScreen(
             }
         }
 
-        // 2. Large Animated JARVIS Orb in Center
+        // 2. Large Animated JARVIS 3D Holographic Orb in Center
         item {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .size(240.dp),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                JarvisOrb(
-                    state = jarvisState,
-                    size = 230.dp,
-                    onClick = onVoiceClick
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 8.dp)
+                        .size(240.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.example.jarvis.ui.components.HolographicCornerBrackets(
+                        bracketColor = com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.4f),
+                        bracketLength = 14.dp
+                    )
+                    JarvisOrb(
+                        state = jarvisState,
+                        size = 225.dp,
+                        onClick = onVoiceClick
+                    )
+                }
+                Text(
+                    text = "3D HOLOGRAPHIC CORE • DRAG TO SPIN • PINCH TO ZOOM",
+                    fontSize = 9.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.65f),
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
                 )
             }
         }

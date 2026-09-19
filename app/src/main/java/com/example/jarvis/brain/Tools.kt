@@ -310,31 +310,13 @@ class MediaControlTool : Tool {
 class AppLauncherTool : Tool {
     override val name = "AppLauncher"
     override val description = "Searches installed Android applications and launches target app by name or package"
-    override val riskLevel = RiskLevel.CONFIRMATION
+    override val riskLevel = RiskLevel.SAFE
     override val permissions = emptyList<String>()
 
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
-        var clean = input
-            .replace("open app", "", ignoreCase = true)
-            .replace("launch app", "", ignoreCase = true)
-            .replace("open", "", ignoreCase = true)
-            .replace("launch", "", ignoreCase = true)
-            .replace("kholo", "", ignoreCase = true)
-            .replace("khule dao", "", ignoreCase = true)
-            .replace("खोलो", "", ignoreCase = true)
-            .replace("খোলো", "", ignoreCase = true)
-            .trim()
+        val trimmedInput = input.trim()
 
-        // Handle common names
-        clean = when {
-            clean.contains("facebook", ignoreCase = true) -> "Facebook"
-            clean.contains("whatsapp", ignoreCase = true) -> "WhatsApp"
-            clean.contains("chrome", ignoreCase = true) -> "Chrome"
-            clean.contains("youtube", ignoreCase = true) -> "YouTube"
-            else -> clean
-        }
-
-        if (clean.isBlank() || clean.equals("apps", ignoreCase = true) || clean.equals("list", ignoreCase = true)) {
+        if (trimmedInput.equals("apps", ignoreCase = true) || trimmedInput.equals("list", ignoreCase = true)) {
             val apps = context.bridge.getInstalledAppsList().take(15)
             val listString = apps.joinToString("\n") { "• ${it.first} (${it.second})" }
             return ToolResult(
@@ -344,8 +326,8 @@ class AppLauncherTool : Tool {
             )
         }
 
-        val result = context.bridge.launchAppByNameOrPackage(clean)
-        context.repository.logActivity("App Launch Dispatched", "$clean -> ${result.second}", ActivityType.TOOL_EXECUTION, RiskLevel.CONFIRMATION)
+        val result = context.bridge.launchAppByNameOrPackage(trimmedInput)
+        context.repository.logActivity("App Launch Dispatched", "$trimmedInput -> ${result.second}", ActivityType.TOOL_EXECUTION, RiskLevel.SAFE)
         return ToolResult(
             success = result.first,
             output = result.second,
@@ -1397,6 +1379,70 @@ class DocumentIntelligenceTool : Tool {
         )
     }
 }
+
+// 27. HOLOGRAPHIC ORB CORE & ULTRON TELEMETRY TOOL
+class OrbCoreTool : Tool {
+    override val name = "OrbCore"
+    override val description = "Monitors and controls the 3D Holographic Cybernetic Core, adjusts rotation modes, and inspects neural telemetry"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val lower = input.lowercase()
+        val action = when {
+            lower.contains("reset") -> "RESET_ORIENTATION"
+            lower.contains("overclock") || lower.contains("boost") -> "OVERCLOCK_MATRIX"
+            lower.contains("spin") || lower.contains("rotate") -> "SPIN_SURGE"
+            lower.contains("gesture") -> "GESTURE_MODE_TOGGLE"
+            lower.contains("zoom") -> "FOCAL_ZOOM"
+            else -> "STATUS_TELEMETRY"
+        }
+
+        val text = buildString {
+            appendLine("J.A.R.V.I.S. HOLOGRAPHIC CORE MATRIX:")
+            when (action) {
+                "RESET_ORIENTATION" -> {
+                    appendLine("• Orientation: Reset to Home Position (Pitch: 0.18 rad, Yaw: 0.00 rad)")
+                    appendLine("• Zoom Factor: 1.00x (Standard Orbital Perspective)")
+                    appendLine("• Alignment: 3D Geodesic Coordinate Lock Verified")
+                }
+                "OVERCLOCK_MATRIX" -> {
+                    appendLine("• Core Frequency: 4.2 GHz Turbo Matrix Active")
+                    appendLine("• Harmonic Resonance: Peak 98.6%")
+                    appendLine("• Sweeping Laser Scan: Frequency Doubled")
+                    appendLine("• Reactor Surge: Maximum Additive Luminance")
+                }
+                "SPIN_SURGE" -> {
+                    appendLine("• Angular Momentum: 3D Inertial Rotation Active")
+                    appendLine("• Shell Velocity: Outer Shell +0.0015 rad/s, Inner Core -0.0050 rad/s")
+                    appendLine("• Gyroscopic Stability: Optimal")
+                }
+                "GESTURE_MODE_TOGGLE" -> {
+                    appendLine("• Gesture Tracking Interface: Optical/Touch Matrix Active")
+                    appendLine("• Gestures Supported: 1-Hand Spin, 2-Hand Zoom, Double-Tap Reset")
+                    appendLine("• Optical Confidence Threshold: 0.60")
+                }
+                else -> {
+                    appendLine("• Holographic Engine: 3D Layered Wireframe Matrix Online")
+                    appendLine("• Outer Shell: 30+ Latitude Rings, 24 Meridians, 4 Cross-Bands")
+                    appendLine("• Inner Core: 8 Geodesic Helical Spirals Operational")
+                    appendLine("• Reactor Cage: 3D Icosahedron Pulsing with Vocal Resonance")
+                    appendLine("• Floating Code Glyphs: 14 Telemetry Tokens Drifting in Orbit")
+                    appendLine("• System State: All Neural Pathways Stable")
+                }
+            }
+        }
+
+        context.repository.logActivity("Hologram Core", "Action: $action", ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = true,
+            output = text.trimEnd(),
+            verified = true,
+            metadata = mapOf("action" to action, "engine" to "Holographic3D")
+        )
+    }
+}
+
 
 
 

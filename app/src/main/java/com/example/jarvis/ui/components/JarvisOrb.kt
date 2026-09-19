@@ -12,13 +12,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,6 +33,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.model.JarvisState
@@ -38,56 +45,92 @@ import com.example.jarvis.ui.theme.JarvisCyanBright
 import com.example.jarvis.ui.theme.JarvisElectricBlue
 import com.example.jarvis.ui.theme.JarvisPurpleHighlight
 import com.example.jarvis.ui.theme.JarvisRed
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * High-fidelity animated JARVIS Orb component featuring spring-based state transitions
- * between IDLE, LISTENING, and SPEAKING states with cybernetic HUD rings, acoustic ripples,
- * and vocal frequency arcs.
+ * High-fidelity 3D Holographic JARVIS Cybernetic Orb.
+ * Integrates Ultron's multi-layered wireframe spherical shells, sweeping scan rings,
+ * spiral geodesic inner core, 3D floating telemetry code glyphs, and central icosahedron cage,
+ * combined with touch interaction (drag to spin, pinch to zoom) and state-reactive acoustics.
  */
 @Composable
 fun JarvisOrb(
     modifier: Modifier = Modifier,
     size: Dp = 230.dp,
     state: JarvisState = JarvisState.IDLE,
+    showHudControls: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    // Interactive 3D Camera Angles
+    var userPitch by remember { mutableFloatStateOf(0.18f) }
+    var userYaw by remember { mutableFloatStateOf(0f) }
+    var userZoom by remember { mutableFloatStateOf(1.0f) }
+
     val infiniteTransition = rememberInfiniteTransition(label = "jarvis_orb_transition")
 
     // Outer continuous rotation
-    val rotationOuter by infiniteTransition.animateFloat(
+    val autoSpinOuter by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
+        targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 10000, easing = LinearEasing),
+            animation = tween(durationMillis = 14000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "rotation_outer"
+        label = "auto_spin_outer"
     )
 
     // Inner counter-rotation
-    val rotationInner by infiniteTransition.animateFloat(
-        initialValue = 360f,
+    val autoSpinInner by infiniteTransition.animateFloat(
+        initialValue = 2 * PI.toFloat(),
         targetValue = 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 7000, easing = LinearEasing),
+            animation = tween(durationMillis = 8000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "rotation_inner"
+        label = "auto_spin_inner"
     )
 
-    // State-dependent breathing / pulsing animation
-    val pulseBreathing by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
+    // Sweeping laser scan rings along Y axis (-0.85 to 0.85)
+    val scanY1 by infiniteTransition.animateFloat(
+        initialValue = -0.85f,
+        targetValue = 0.85f,
         animationSpec = infiniteRepeatable(
             animation = tween(
                 durationMillis = when (state) {
-                    JarvisState.LISTENING -> 850
-                    JarvisState.SPEAKING -> 550
-                    JarvisState.THINKING -> 450
-                    else -> 2200
+                    JarvisState.LISTENING -> 1600
+                    JarvisState.THINKING -> 1200
+                    else -> 3200
+                },
+                easing = FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scan_y1"
+    )
+
+    val scanY2 by infiniteTransition.animateFloat(
+        initialValue = 0.80f,
+        targetValue = -0.80f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 4200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scan_y2"
+    )
+
+    // State-dependent breathing / pulsing
+    val pulseBreathing by infiniteTransition.animateFloat(
+        initialValue = 0.93f,
+        targetValue = 1.07f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = when (state) {
+                    JarvisState.LISTENING -> 800
+                    JarvisState.SPEAKING -> 500
+                    JarvisState.THINKING -> 400
+                    else -> 2400
                 },
                 easing = FastOutSlowInEasing
             ),
@@ -96,7 +139,7 @@ fun JarvisOrb(
         label = "pulse_breathing"
     )
 
-    // Dynamic acoustic wave expansion for LISTENING state
+    // Acoustic wave ripple expansion for LISTENING state
     val listeningRipple by infiniteTransition.animateFloat(
         initialValue = 0.5f,
         targetValue = 1.35f,
@@ -110,7 +153,7 @@ fun JarvisOrb(
     // Dynamic vocal frequency oscillations for SPEAKING state
     val speakingHarmonic by infiniteTransition.animateFloat(
         initialValue = 0.7f,
-        targetValue = 1.3f,
+        targetValue = 1.35f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 350, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -118,12 +161,12 @@ fun JarvisOrb(
         label = "speaking_harmonic"
     )
 
-    // State transition spring physics (equivalent to Framer Motion spring)
+    // State transition spring physics
     val stateScale by animateFloatAsState(
         targetValue = when (state) {
             JarvisState.LISTENING -> 1.15f
-            JarvisState.SPEAKING -> 1.10f
-            JarvisState.THINKING -> 1.05f
+            JarvisState.SPEAKING -> 1.12f
+            JarvisState.THINKING -> 1.06f
             JarvisState.ERROR -> 0.95f
             else -> 1.0f
         },
@@ -146,28 +189,28 @@ fun JarvisOrb(
         JarvisState.IDLE -> JarvisElectricBlue
         JarvisState.LISTENING -> JarvisCyan
         JarvisState.SPEAKING -> JarvisCyanBright
-        JarvisState.THINKING -> JarvisElectricBlue
+        JarvisState.THINKING -> JarvisAmber
         JarvisState.ERROR -> JarvisAmber
     }
 
     val primaryColor by animateColorAsState(
         targetValue = targetPrimary,
-        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
         label = "primary_color"
     )
 
     val secondaryColor by animateColorAsState(
         targetValue = targetSecondary,
-        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
         label = "secondary_color"
     )
 
     val glowAlpha by animateFloatAsState(
         targetValue = when (state) {
-            JarvisState.LISTENING -> 0.65f
-            JarvisState.SPEAKING -> 0.75f
-            JarvisState.THINKING -> 0.55f
-            else -> 0.38f
+            JarvisState.LISTENING -> 0.70f
+            JarvisState.SPEAKING -> 0.80f
+            JarvisState.THINKING -> 0.60f
+            else -> 0.40f
         },
         animationSpec = tween(durationMillis = 400),
         label = "glow_alpha"
@@ -176,18 +219,37 @@ fun JarvisOrb(
     Box(
         modifier = modifier
             .size(size)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
+            .testTag("jarvis_orb")
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { },
+                    onDragEnd = { },
+                    onDragCancel = { },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        userYaw += dragAmount.x * 0.009f
+                        userPitch = (userPitch - dragAmount.y * 0.009f).coerceIn(-1.2f, 1.2f)
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectTransformGestures { _, _, zoom, _ ->
+                    userZoom = (userZoom * zoom).coerceIn(0.65f, 2.2f)
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(size)) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("jarvis_orb_canvas")
+        ) {
             val center = Offset(size.toPx() / 2f, size.toPx() / 2f)
-            val baseRadius = size.toPx() * 0.40f * stateScale
+            val baseRadius = size.toPx() * 0.38f * stateScale
+            val effectivePitch = userPitch
+            val effectiveYaw = userYaw + autoSpinOuter
 
-            // 1. Ambient Glow Field (Cyan/Electric Blue with subtle Purple Highlights)
+            // 1. Ambient Radial Glow Field
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
@@ -197,45 +259,208 @@ fun JarvisOrb(
                         Color.Transparent
                     ),
                     center = center,
-                    radius = baseRadius * 1.45f
+                    radius = baseRadius * 1.45f * userZoom
                 ),
-                radius = baseRadius * 1.45f,
+                radius = baseRadius * 1.45f * userZoom,
                 center = center
             )
 
-            // 2. State-Specific Visual Layers
+            // 2. LAYER 1: OUTER 3D WIREFRAME SPHERICAL SHELL
+            // Latitude Rings
+            val latSteps = listOf(-0.9f, -0.6f, -0.3f, 0f, 0.3f, 0.6f, 0.9f)
+            for (lat in latSteps) {
+                val isEquator = lat == 0f
+                HolographicOrb3D.drawLatitudeRing(
+                    drawScope = this,
+                    center = center,
+                    radius = baseRadius,
+                    latRad = lat,
+                    pitchRad = effectivePitch,
+                    yawRad = effectiveYaw,
+                    zoom = userZoom,
+                    color = if (isEquator) primaryColor else secondaryColor,
+                    alphaMultiplier = if (isEquator) 1.2f else 0.7f,
+                    strokeWidth = if (isEquator) 2.2f else 1.3f
+                )
+            }
+
+            // Meridians (Longitudinal Wireframe)
+            val meridianCount = 12
+            for (m in 0 until meridianCount) {
+                val lon = (m.toFloat() / meridianCount) * PI.toFloat() * 2f
+                val isCardinal = m % 3 == 0
+                HolographicOrb3D.drawMeridian(
+                    drawScope = this,
+                    center = center,
+                    radius = baseRadius,
+                    lonRad = lon,
+                    pitchRad = effectivePitch,
+                    yawRad = effectiveYaw,
+                    zoom = userZoom,
+                    color = if (isCardinal) primaryColor else secondaryColor,
+                    alphaMultiplier = if (isCardinal) 0.9f else 0.45f,
+                    strokeWidth = if (isCardinal) 1.8f else 1.1f
+                )
+            }
+
+            // Ultron Cross-Meridian High-Intensity Targeting Bands
+            HolographicOrb3D.drawCrossMeridians(
+                drawScope = this,
+                center = center,
+                radius = baseRadius,
+                pitchRad = effectivePitch,
+                yawRad = effectiveYaw,
+                zoom = userZoom,
+                color = primaryColor,
+                alphaMultiplier = 0.95f
+            )
+
+            // 3. LAYER 2: 3D HEXAGONAL SURFACE NODES
+            val hexNodes = listOf(
+                Point3D(0.6f, 0.4f, 0.69f),
+                Point3D(-0.7f, 0.3f, 0.65f),
+                Point3D(0.3f, -0.7f, 0.65f),
+                Point3D(-0.4f, -0.5f, 0.76f),
+                Point3D(0.8f, -0.2f, 0.56f)
+            )
+            for (node in hexNodes) {
+                val rot = HolographicOrb3D.rotate(node, effectivePitch, effectiveYaw)
+                val proj = HolographicOrb3D.project(rot, center, baseRadius, userZoom)
+                if (proj.isFrontFacing) {
+                    val hexSize = 5.dp.toPx() * proj.scale
+                    drawCircle(
+                        color = primaryColor.copy(alpha = 0.85f),
+                        radius = hexSize * 0.5f,
+                        center = Offset(proj.screenX, proj.screenY),
+                        style = Stroke(width = 1.4f)
+                    )
+                }
+            }
+
+            // 4. LAYER 3: 3D INNER GEODESIC SPIRAL CORE
+            val innerCoreRadius = baseRadius * 0.48f * pulseBreathing
+            HolographicOrb3D.drawInnerSpiralCore(
+                drawScope = this,
+                center = center,
+                coreRadius = innerCoreRadius,
+                pitchRad = effectivePitch,
+                yawRad = effectiveYaw + autoSpinInner,
+                zoom = userZoom,
+                innerSpin = autoSpinInner * 1.5f,
+                color = primaryColor,
+                alphaMultiplier = 0.85f
+            )
+
+            // 5. LAYER 4: CENTRAL WIREFRAME ICOSAHEDRON CAGE & REACTOR
+            val icoRadius = innerCoreRadius * 0.42f
+            HolographicOrb3D.drawIcosahedronCage(
+                drawScope = this,
+                center = center,
+                radius = icoRadius,
+                pitchRad = effectivePitch + autoSpinOuter * 0.8f,
+                yawRad = effectiveYaw + autoSpinInner * 0.8f,
+                zoom = userZoom,
+                color = Color.White,
+                alpha = 0.9f
+            )
+
+            // Central Pulsating Reactor Glow
+            val reactorR = (innerCoreRadius * 0.32f) * pulseBreathing
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White,
+                        primaryColor,
+                        secondaryColor.copy(alpha = 0.8f),
+                        Color.Transparent
+                    ),
+                    center = center,
+                    radius = reactorR * userZoom
+                ),
+                radius = reactorR * userZoom,
+                center = center
+            )
+
+            // 6. LAYER 5: SWEEPING 3D LASER SCAN RINGS
+            HolographicOrb3D.drawScanRing(
+                drawScope = this,
+                center = center,
+                radius = baseRadius,
+                yNorm = scanY1,
+                pitchRad = effectivePitch,
+                yawRad = effectiveYaw,
+                zoom = userZoom,
+                color = JarvisCyanBright,
+                strokeWidth = 2.4f
+            )
+
+            HolographicOrb3D.drawScanRing(
+                drawScope = this,
+                center = center,
+                radius = baseRadius * 0.85f,
+                yNorm = scanY2,
+                pitchRad = effectivePitch,
+                yawRad = effectiveYaw,
+                zoom = userZoom,
+                color = secondaryColor,
+                strokeWidth = 1.8f
+            )
+
+            // 7. LAYER 6: FLOATING 3D CYBERNETIC CODE GLYPHS
+            val paint = android.graphics.Paint().apply {
+                color = android.graphics.Color.argb(
+                    (160 * glowAlpha).toInt().coerceIn(40, 240),
+                    (primaryColor.red * 255).toInt(),
+                    (primaryColor.green * 255).toInt(),
+                    (primaryColor.blue * 255).toInt()
+                )
+                textSize = (9f * density * userZoom).coerceIn(14f, 32f)
+                typeface = android.graphics.Typeface.MONOSPACE
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+
+            val snippets = HolographicOrb3D.TELEMETRY_SNIPPETS
+            for (idx in 0 until 6) {
+                val phi = (idx * 0.9f) - 1.2f
+                val theta = (idx * 1.05f) + autoSpinOuter * 0.6f
+                val r = 1.08f
+                val pt = Point3D(r * cos(phi) * cos(theta), r * sin(phi), r * cos(phi) * sin(theta))
+                val rot = HolographicOrb3D.rotate(pt, effectivePitch, effectiveYaw)
+                val proj = HolographicOrb3D.project(rot, center, baseRadius, userZoom)
+                if (proj.isFrontFacing) {
+                    drawContext.canvas.nativeCanvas.drawText(
+                        snippets[idx % snippets.size],
+                        proj.screenX,
+                        proj.screenY,
+                        paint
+                    )
+                }
+            }
+
+            // 8. STATE-SPECIFIC ACOUSTICS / EQUALIZER
             when (state) {
                 JarvisState.LISTENING -> {
                     // Acoustic ripples expanding outward
-                    val rippleRadius = baseRadius * listeningRipple
-                    val rippleAlpha = (1f - (listeningRipple - 0.5f) / 0.85f).coerceIn(0f, 1f) * 0.7f
+                    val rippleRadius = baseRadius * listeningRipple * userZoom
+                    val rippleAlpha = (1f - (listeningRipple - 0.5f) / 0.85f).coerceIn(0f, 1f) * 0.75f
                     drawCircle(
                         color = JarvisCyanBright.copy(alpha = rippleAlpha),
                         radius = rippleRadius,
                         center = center,
                         style = Stroke(width = 2.dp.toPx())
                     )
-
-                    val innerRipple = baseRadius * ((listeningRipple + 0.4f) % 0.85f + 0.5f)
-                    val innerAlpha = (1f - (innerRipple / baseRadius - 0.5f)).coerceIn(0f, 1f) * 0.45f
-                    drawCircle(
-                        color = primaryColor.copy(alpha = innerAlpha),
-                        radius = innerRipple,
-                        center = center,
-                        style = Stroke(width = 1.5.dp.toPx())
-                    )
                 }
 
                 JarvisState.SPEAKING -> {
                     // Harmonic Soundwave Equalizer Arcs around perimeter
-                    val arcRadius = baseRadius * 1.08f
-                    val arcCount = 16
+                    val arcRadius = baseRadius * 1.10f * userZoom
+                    val arcCount = 18
                     val step = 360f / arcCount
                     for (i in 0 until arcCount) {
-                        val angle = (i * step) + (rotationOuter * 0.5f)
+                        val angle = (i * step) + Math.toDegrees(effectiveYaw.toDouble()).toFloat()
                         val rad = Math.toRadians(angle.toDouble())
-                        // Modulation based on harmonic
-                        val barHeight = (4.dp.toPx() + (8.dp.toPx() * ((i % 4 + 1) / 4f) * speakingHarmonic))
+                        val barHeight = (4.dp.toPx() + (9.dp.toPx() * ((i % 4 + 1) / 4f) * speakingHarmonic))
                         val startR = arcRadius
                         val endR = arcRadius + barHeight
 
@@ -258,151 +483,15 @@ fun JarvisOrb(
                     }
                 }
 
-                else -> {
-                    // IDLE state subtle orbital node points
-                    val orbitRadius = baseRadius * 1.06f
-                    for (i in 0 until 6) {
-                        val angle = (i * 60f) + (rotationOuter * 0.3f)
-                        val rad = Math.toRadians(angle.toDouble())
-                        val pt = Offset(
-                            center.x + (orbitRadius * cos(rad)).toFloat(),
-                            center.y + (orbitRadius * sin(rad)).toFloat()
-                        )
-                        drawCircle(
-                            color = primaryColor.copy(alpha = 0.5f),
-                            radius = 2.dp.toPx(),
-                            center = pt
-                        )
-                    }
-                }
+                else -> {}
             }
 
-            // 3. Outer Segmented Ring
-            rotate(rotationOuter, pivot = center) {
-                drawSegmentedRing(
-                    center = center,
-                    radius = baseRadius,
-                    color = primaryColor.copy(alpha = 0.75f),
-                    strokeWidth = 2.5.dp.toPx(),
-                    segments = 6,
-                    gapDegrees = 20f
-                )
-                drawTickMarks(
-                    center = center,
-                    radius = baseRadius - 8.dp.toPx(),
-                    color = primaryColor.copy(alpha = 0.45f),
-                    count = 24
-                )
-            }
-
-            // 4. Counter-rotating Middle Ring with HUD Reticles
-            rotate(rotationInner, pivot = center) {
-                drawSegmentedRing(
-                    center = center,
-                    radius = baseRadius * 0.75f,
-                    color = secondaryColor.copy(alpha = 0.85f),
-                    strokeWidth = 2.dp.toPx(),
-                    segments = 4,
-                    gapDegrees = 35f
-                )
-                // Diagonal crosshairs / HUD reticles
-                val armLen = 14.dp.toPx()
-                for (angle in listOf(45f, 135f, 225f, 315f)) {
-                    val rad = Math.toRadians(angle.toDouble())
-                    val r1 = baseRadius * 0.75f - armLen
-                    val r2 = baseRadius * 0.75f + armLen
-                    drawLine(
-                        color = primaryColor.copy(alpha = 0.55f),
-                        start = Offset(center.x + (r1 * cos(rad)).toFloat(), center.y + (r1 * sin(rad)).toFloat()),
-                        end = Offset(center.x + (r2 * cos(rad)).toFloat(), center.y + (r2 * sin(rad)).toFloat()),
-                        strokeWidth = 1.5.dp.toPx()
-                    )
-                }
-            }
-
-            // 5. Central Reactor Core (Breathing + State Pulse)
-            val coreRadius = (baseRadius * 0.46f) * pulseBreathing
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color.White,
-                        primaryColor,
-                        secondaryColor.copy(alpha = 0.85f),
-                        Color.Transparent
-                    ),
-                    center = center,
-                    radius = coreRadius
-                ),
-                radius = coreRadius,
-                center = center
-            )
-
-            // 6. Core Inner Ring
-            drawCircle(
-                color = primaryColor.copy(alpha = 0.95f),
-                radius = coreRadius * 0.68f,
-                center = center,
-                style = Stroke(width = 1.8.dp.toPx())
-            )
-
-            // 7. Radiant Center Point
+            // 9. Radiant Core Point
             drawCircle(
                 color = Color.White,
-                radius = 4.5.dp.toPx() * pulseBreathing,
+                radius = 4.dp.toPx() * pulseBreathing,
                 center = center
             )
         }
-    }
-}
-
-private fun DrawScope.drawSegmentedRing(
-    center: Offset,
-    radius: Float,
-    color: Color,
-    strokeWidth: Float,
-    segments: Int,
-    gapDegrees: Float
-) {
-    val totalSpan = 360f - (segments * gapDegrees)
-    val sweepAngle = totalSpan / segments
-    var currentAngle = 0f
-
-    val rectSize = Size(radius * 2, radius * 2)
-    val topLeft = Offset(center.x - radius, center.y - radius)
-
-    for (i in 0 until segments) {
-        drawArc(
-            color = color,
-            startAngle = currentAngle,
-            sweepAngle = sweepAngle,
-            useCenter = false,
-            topLeft = topLeft,
-            size = rectSize,
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
-        currentAngle += sweepAngle + gapDegrees
-    }
-}
-
-private fun DrawScope.drawTickMarks(
-    center: Offset,
-    radius: Float,
-    color: Color,
-    count: Int
-) {
-    val step = 360f / count
-    val tickLength = 5.dp.toPx()
-    for (i in 0 until count) {
-        val angle = Math.toRadians((i * step).toDouble())
-        val startX = center.x + (radius * cos(angle)).toFloat()
-        val startY = center.y + (radius * sin(angle)).toFloat()
-        val endX = center.x + ((radius - tickLength) * cos(angle)).toFloat()
-        val endY = center.y + ((radius - tickLength) * sin(angle)).toFloat()
-        drawLine(
-            color = color,
-            start = Offset(startX, startY),
-            end = Offset(endX, endY),
-            strokeWidth = 1.dp.toPx()
-        )
     }
 }

@@ -112,6 +112,7 @@ class AgentBrain(
         registry.register(TranslationTool())
         registry.register(WebResearchTool())
         registry.register(DeepResearchTool())
+        registry.register(OrbCoreTool())
         registry.register(com.example.jarvis.automation.AutomationTool(automationOrchestrator))
         pluginManager.syncToolsWithBrain(this)
     }

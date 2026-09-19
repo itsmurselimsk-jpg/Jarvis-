@@ -263,7 +263,8 @@ class AndroidBridge(private val context: Context) {
         locale: Locale? = null,
         onDone: (() -> Unit)? = null
     ) {
-        if (!isTtsReady || text.isBlank() || !_isSpeakerEnabled.value) {
+        val sanitizedText = com.example.jarvis.voice.TtsSanitizer.sanitizeForTts(text)
+        if (!isTtsReady || sanitizedText.isBlank() || !_isSpeakerEnabled.value) {
             onDone?.invoke()
             return
         }
@@ -288,7 +289,7 @@ class AndroidBridge(private val context: Context) {
         }
         val params = Bundle()
         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        textToSpeech?.speak(sanitizedText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
     fun getInstalledTtsVoices(): List<String> {
@@ -494,43 +495,121 @@ class AndroidBridge(private val context: Context) {
 
     // APP LAUNCHER
     fun getInstalledAppsList(): List<Pair<String, String>> {
-        val pm = context.packageManager
-        val intent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
+        return try {
+            val pm = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val resolveInfos = pm.queryIntentActivities(intent, 0)
+            resolveInfos.mapNotNull { resolveInfo ->
+                val label = resolveInfo.loadLabel(pm)?.toString()?.trim()
+                val pkg = resolveInfo.activityInfo?.packageName
+                if (!label.isNullOrEmpty() && !pkg.isNullOrEmpty()) {
+                    Pair(label, pkg)
+                } else null
+            }.distinctBy { it.second }.sortedBy { it.first }
+        } catch (e: Exception) {
+            emptyList()
         }
-        val resolveInfos = pm.queryIntentActivities(intent, 0)
-        return resolveInfos.map {
-            val label = it.loadLabel(pm).toString()
-            val pkg = it.activityInfo.packageName
-            Pair(label, pkg)
-        }.sortedBy { it.first }
+    }
+
+    private fun cleanAppQuery(input: String): String {
+        var text = input.trim()
+        val removePhrases = listOf(
+            "open app", "launch app", "start app", "run app",
+            "open karo", "launch karo", "start karo", "open kr", "open koro",
+            "open de", "open do", "launch kr", "launch koro",
+            "open", "launch", "start", "run",
+            "kholna", "khol de", "khol do", "kholo", "khol", "khole",
+            "खोलो", "खोल", "খুলুন", "খোল", "চালু করো", "চালু কর",
+            "open app named", "open app called", "app"
+        )
+        for (phrase in removePhrases) {
+            text = text.replace(Regex("""(?i)\b${Regex.escape(phrase)}\b"""), " ")
+        }
+        return text.replace(Regex("""\s+"""), " ").trim()
     }
 
     fun launchAppByNameOrPackage(query: String): Pair<Boolean, String> {
         val pm = context.packageManager
-        // 1. Direct package check
-        val directIntent = pm.getLaunchIntentForPackage(query)
-        if (directIntent != null) {
-            directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(directIntent)
-            return Pair(true, "Launched package: $query")
+        val cleanQuery = cleanAppQuery(query)
+        if (cleanQuery.isBlank()) {
+            return Pair(false, "Ye app installed nahi hai bhai.")
         }
 
-        // 2. Fuzzy label search
-        val allApps = getInstalledAppsList()
-        val match = allApps.find { it.first.equals(query, ignoreCase = true) }
-            ?: allApps.find { it.first.contains(query, ignoreCase = true) }
-            ?: allApps.find { it.second.contains(query, ignoreCase = true) }
-
-        if (match != null) {
-            val launchIntent = pm.getLaunchIntentForPackage(match.second)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launchIntent)
-                return Pair(true, "Launched ${match.first} (${match.second})")
+        // 1. Direct package check
+        if (cleanQuery.contains(".")) {
+            val directIntent = pm.getLaunchIntentForPackage(cleanQuery)
+            if (directIntent != null) {
+                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                return try {
+                    context.startActivity(directIntent)
+                    Pair(true, "Successfully opened $cleanQuery.")
+                } catch (e: Exception) {
+                    Pair(false, "Failed to launch $cleanQuery: ${e.message}")
+                }
             }
         }
-        return Pair(false, "No installed app found matching '$query'")
+
+        // 2. Query all installed launcher apps
+        val allApps = getInstalledAppsList()
+        val lowerQuery = cleanQuery.lowercase()
+
+        // a. Exact Label Match (case-insensitive)
+        val exactMatch = allApps.find { it.first.equals(cleanQuery, ignoreCase = true) }
+        if (exactMatch != null) {
+            return launchPackage(pm, exactMatch.second, exactMatch.first)
+        }
+
+        // b. Normalized Label Match (ignoring spaces & special chars e.g. "play store" vs "google play store")
+        val queryNorm = lowerQuery.replace(Regex("""[^a-z0-9]"""), "")
+        if (queryNorm.isNotEmpty()) {
+            val normExact = allApps.filter { app ->
+                val appNorm = app.first.lowercase().replace(Regex("""[^a-z0-9]"""), "")
+                appNorm == queryNorm
+            }
+            if (normExact.size == 1) {
+                return launchPackage(pm, normExact[0].second, normExact[0].first)
+            }
+        }
+
+        // c. Partial / Substring Matches
+        val partialMatches = allApps.filter { app ->
+            val appLower = app.first.lowercase()
+            val pkgLower = app.second.lowercase()
+            appLower.contains(lowerQuery) || lowerQuery.contains(appLower) || pkgLower.contains(lowerQuery)
+        }
+
+        if (partialMatches.size == 1) {
+            return launchPackage(pm, partialMatches[0].second, partialMatches[0].first)
+        }
+
+        if (partialMatches.size > 1) {
+            val wordMatches = partialMatches.filter { app ->
+                val words = app.first.lowercase().split(" ", "-", "_")
+                words.contains(lowerQuery)
+            }
+            if (wordMatches.size == 1) {
+                return launchPackage(pm, wordMatches[0].second, wordMatches[0].first)
+            }
+            return Pair(false, "Kaunsa app kholun?")
+        }
+
+        return Pair(false, "Ye app installed nahi hai bhai.")
+    }
+
+    private fun launchPackage(pm: PackageManager, packageName: String, appLabel: String): Pair<Boolean, String> {
+        val launchIntent = pm.getLaunchIntentForPackage(packageName)
+        if (launchIntent == null) {
+            return Pair(false, "Failed to launch $appLabel: No launch activity found.")
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            context.startActivity(launchIntent)
+            Pair(true, "Successfully opened $appLabel.")
+        } catch (e: Exception) {
+            Pair(false, "Failed to launch $appLabel: ${e.message}")
+        }
     }
 
     // YOUTUBE SEARCH & PLAYBACK (REAL INTENT ACTION)

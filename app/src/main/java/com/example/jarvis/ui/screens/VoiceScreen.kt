@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Sync
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -97,6 +99,9 @@ fun VoiceScreen(
 ) {
     var speechSpeed by remember { mutableFloatStateOf(1.0f) }
     var speechPitch by remember { mutableFloatStateOf(1.0f) }
+    var showGesturePanel by remember { mutableStateOf(false) }
+    var isGestureActive by remember { mutableStateOf(false) }
+    var gestureModeText by remember { mutableStateOf("STANDBY") }
 
     Column(
         modifier = Modifier
@@ -192,6 +197,24 @@ fun VoiceScreen(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+
+                // Ultron Holographic HUD / Gestures Toggle Button
+                IconButton(
+                    onClick = { showGesturePanel = !showGesturePanel },
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(if (showGesturePanel) JarvisCyan.copy(alpha = 0.25f) else Color(0xFF0D1B2E))
+                        .border(1.dp, if (showGesturePanel) JarvisCyanBright else JarvisBorderSubtle, CircleShape)
+                        .testTag("toggle_hologram_hud_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PanTool,
+                        contentDescription = "Toggle Hologram Gestures HUD",
+                        tint = if (showGesturePanel) JarvisCyanBright else JarvisCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
@@ -230,6 +253,25 @@ fun VoiceScreen(
                     } else {
                         onStartListening()
                     }
+                }
+            )
+        }
+
+        if (showGesturePanel) {
+            Spacer(modifier = Modifier.height(10.dp))
+            com.example.jarvis.ui.components.GestureCameraPanel(
+                isVisible = showGesturePanel,
+                isGestureActive = isGestureActive,
+                gestureMode = gestureModeText,
+                onToggleGesture = {
+                    isGestureActive = !isGestureActive
+                    gestureModeText = if (isGestureActive) "1 HAND • SPIN" else "STANDBY"
+                },
+                onZoomIn = {},
+                onZoomOut = {},
+                onReset = {
+                    isGestureActive = false
+                    gestureModeText = "STANDBY"
                 }
             )
         }

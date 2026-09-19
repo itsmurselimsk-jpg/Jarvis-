@@ -157,10 +157,14 @@ object JarvisPersonality {
         reason: String,
         languageStyle: LanguageStyle
     ): String {
+        val brief = reason.trim()
+        if (brief.contains("installed nahi hai") || brief.contains("Kaunsa app kholun") || brief.contains("not installed")) {
+            return brief
+        }
         return when (languageStyle) {
-            LanguageStyle.HINGLISH -> "Try kiya, par $toolName execute nahi ho paya. ($reason)"
-            LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Try korlam, kintu $toolName honyni. ($reason)"
-            else -> "Attempted action, but $toolName execution failed: $reason"
+            LanguageStyle.HINGLISH -> "Try kiya, par $toolName execute nahi ho paya. ($brief)"
+            LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Try korlam, kintu $toolName honyni. ($brief)"
+            else -> "Attempted action, but $toolName execution failed: $brief"
         }
     }
 }

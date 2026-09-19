@@ -89,7 +89,18 @@ object IntentClassifier {
             )
         }
 
-        // 3b. Translation
+        // 3b. Holographic Orb Core / Ultron Matrix
+        if (lower.contains("orb") || lower.contains("hologram") || lower.contains("holographic") ||
+            lower.contains("ultron") || lower.contains("overclock core") || lower.contains("spin orb")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "OrbCore",
+                explanation = "Holographic Cybernetic Core control and telemetry request"
+            )
+        }
+
+        // 3c. Translation
         if (lower.contains("translate") || lower.contains("অনুবাদ") || lower.contains("anuvad") ||
             (lower.contains("mean in") && (lower.contains("hindi") || lower.contains("bengali") || lower.contains("english")))) {
             return IntentDetectionResult(
@@ -146,6 +157,23 @@ object IntentClassifier {
                 requiresTool = true,
                 suggestedToolName = "Tasks",
                 explanation = "Reminder or timed task request"
+            )
+        }
+
+        // 7b. App Launch Requests
+        val isAppLaunchKeyword = lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ") ||
+                lower.contains(" kholo") || lower.contains(" khol") || lower.contains(" open karo") ||
+                lower.contains(" launch karo") || lower.contains(" start karo") || lower.contains(" khol de") ||
+                lower.contains(" khol do") || lower.endsWith(" kholo") || lower.endsWith(" khol") ||
+                lower.contains(" app open") || lower.contains(" app kholo")
+        val isExcludedOpen = lower.contains("open url") || lower.contains("open link") || lower.contains("open file") || lower.contains("open notes")
+
+        if (isAppLaunchKeyword && !isExcludedOpen) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "AppLauncher",
+                explanation = "Application launch request"
             )
         }
 
