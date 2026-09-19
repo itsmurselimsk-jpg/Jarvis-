@@ -196,6 +196,27 @@ fun SettingsScreen(
                     singleLine = true
                 )
 
+                // Helpful guidance note
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF07111D))
+                        .border(0.5.dp, JarvisCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                ) {
+                    Text(
+                        text = if (providerType == AIProviderType.OPENAI_COMPATIBLE) {
+                            "💡 Tip: Enter your OpenAI API key (platform.openai.com) to talk directly to ChatGPT models (gpt-4o, gpt-4o-mini)."
+                        } else {
+                            "💡 Tip: Get a free Gemini key from aistudio.google.com and paste it here to unlock full ChatGPT-level intelligence and comprehension!"
+                        },
+                        fontSize = 11.sp,
+                        color = JarvisTextSecondary,
+                        lineHeight = 15.sp
+                    )
+                }
+
                 if (providerType == AIProviderType.OPENAI_COMPATIBLE) {
                     OutlinedTextField(
                         value = customEndpoint,

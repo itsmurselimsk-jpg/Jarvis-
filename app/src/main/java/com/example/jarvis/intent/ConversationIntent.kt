@@ -89,9 +89,10 @@ object IntentClassifier {
             )
         }
 
-        // 3b. Holographic Orb Core / Ultron Matrix
+        // 3b. Holographic Orb Core Matrix
         if (lower.contains("orb") || lower.contains("hologram") || lower.contains("holographic") ||
-            lower.contains("ultron") || lower.contains("overclock core") || lower.contains("spin orb")) {
+            lower.contains("crimson mode") || lower.contains("overclock core") || lower.contains("spin orb") ||
+            lower.contains("core theme") || lower.contains("core mode") || lower.contains("arc reactor")) {
             return IntentDetectionResult(
                 intent = ConversationIntent.DEVICE_ACTION,
                 requiresTool = true,
@@ -100,7 +101,31 @@ object IntentClassifier {
             )
         }
 
-        // 3c. Translation
+        // 3c. Tactical & Strategic Matrix (Combat Analysis)
+        if (lower.contains("tactical") || lower.contains("combat protocol") || lower.contains("threat assessment") ||
+            lower.contains("situation report") || lower.contains("sitrep") || lower.contains("mission plan")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "Tactical",
+                explanation = "Tactical analysis and strategic contingency matrix request"
+            )
+        }
+
+        // 3c-2. Stark Operational Protocols (Morning / Night / Perimeter / Surge)
+        if (lower.contains("morning protocol") || lower.contains("good morning jarvis") || lower.contains("morning briefing") ||
+            lower.contains("night protocol") || lower.contains("sleep protocol") || lower.contains("bedtime protocol") ||
+            lower.contains("secure perimeter") || lower.contains("security protocol") || lower.contains("perimeter protocol") ||
+            lower.contains("power surge") || lower.contains("overclock reactor") || lower.contains("maximum power")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "StarkProtocol",
+                explanation = "Stark Operational Executive Protocol directive"
+            )
+        }
+
+        // 3d. Translation
         if (lower.contains("translate") || lower.contains("অনুবাদ") || lower.contains("anuvad") ||
             (lower.contains("mean in") && (lower.contains("hindi") || lower.contains("bengali") || lower.contains("english")))) {
             return IntentDetectionResult(
@@ -174,6 +199,35 @@ object IntentClassifier {
                 requiresTool = true,
                 suggestedToolName = "AppLauncher",
                 explanation = "Application launch request"
+            )
+        }
+
+        // 7c. WhatsApp & SMS Messaging
+        if (lower.contains("whatsapp") || lower.contains("व्हाट्सएप") || lower.contains("হোয়াটসঅ্যাপ")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "WhatsAppMessage",
+                explanation = "WhatsApp messaging dispatch request"
+            )
+        }
+
+        if (lower.startsWith("send sms") || lower.startsWith("sms ") || lower.contains("sms bhejo") || lower.contains("text message") || lower.startsWith("send text")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "SmsMessage",
+                explanation = "SMS text dispatch request"
+            )
+        }
+
+        // 7d. Calendar & Agenda
+        if (lower.contains("calendar") || lower.contains("schedule meeting") || lower.contains("add event") || lower.contains("appointment") || lower.contains("agenda") || lower.contains("कैलेंडर") || lower.contains("ক্যালেন্ডার")) {
+            return IntentDetectionResult(
+                intent = ConversationIntent.DEVICE_ACTION,
+                requiresTool = true,
+                suggestedToolName = "CalendarEvent",
+                explanation = "Calendar scheduling or query request"
             )
         }
 

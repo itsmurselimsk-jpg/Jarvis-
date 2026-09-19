@@ -23,20 +23,33 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Wifi
+import com.example.jarvis.ui.components.CyberActionCard
+import com.example.jarvis.ui.components.StarkArcReactorHero
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -45,6 +58,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +69,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -219,34 +234,88 @@ fun HomeScreen(
             }
         }
 
-        // 2. Large Animated JARVIS 3D Holographic Orb in Center
+        // 2. Large Animated JARVIS Hero Core (Toggleable Arc Reactor & 3D Hologram)
         item {
+            var useArcReactorMode by remember { mutableStateOf(false) }
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Mode switcher badge
+                Row(
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xEE0B1527))
+                        .border(1.dp, JarvisBorderSubtle, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 4.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (!useArcReactorMode) JarvisCyan.copy(alpha = 0.25f) else Color.Transparent)
+                            .clickable { useArcReactorMode = false }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "3D HOLO CORE",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (!useArcReactorMode) JarvisCyanBright else JarvisTextDim
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (useArcReactorMode) JarvisAmber.copy(alpha = 0.25f) else Color.Transparent)
+                            .clickable { useArcReactorMode = true }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "ARC REACTOR MK-85",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (useArcReactorMode) JarvisAmber else JarvisTextDim
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 4.dp)
                         .size(240.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     com.example.jarvis.ui.components.HolographicCornerBrackets(
-                        bracketColor = com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.4f),
-                        bracketLength = 14.dp
+                        bracketColor = if (useArcReactorMode) JarvisAmber.copy(alpha = 0.5f) else com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.4f),
+                        bracketLength = 16.dp
                     )
-                    JarvisOrb(
-                        state = jarvisState,
-                        size = 225.dp,
-                        onClick = onVoiceClick
-                    )
+
+                    if (useArcReactorMode) {
+                        StarkArcReactorHero(
+                            isListening = jarvisState == JarvisState.LISTENING,
+                            onClick = onVoiceClick
+                        )
+                    } else {
+                        JarvisOrb(
+                            state = jarvisState,
+                            size = 225.dp,
+                            onClick = onVoiceClick
+                        )
+                    }
                 }
+
                 Text(
-                    text = "3D HOLOGRAPHIC CORE • DRAG TO SPIN • PINCH TO ZOOM",
+                    text = if (useArcReactorMode) "PALLADIUM ARC REACTOR • TAP TO ENGAGE VOICE MATRIX" else "3D HOLOGRAPHIC CORE • DRAG TO SPIN • PINCH TO ZOOM",
                     fontSize = 9.sp,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    color = com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.65f),
+                    color = if (useArcReactorMode) JarvisAmber.copy(alpha = 0.75f) else com.example.jarvis.ui.theme.JarvisCyan.copy(alpha = 0.65f),
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
@@ -372,6 +441,184 @@ fun HomeScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                }
+            }
+        }
+
+        // 4b. STARK OPERATIONAL PROTOCOLS & FLOATING ARC REACTOR ORB
+        item {
+            val context = LocalContext.current
+            val isOrbActive by com.example.jarvis.overlay.FloatingArcOrbService.isOrbRunning.collectAsState()
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "STARK PROTOCOLS & ARC ORB",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = JarvisCyan,
+                        letterSpacing = 1.sp
+                    )
+
+                    // Floating Orb status badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isOrbActive) Color(0x3300E5FF) else Color(0x22FFFFFF))
+                            .border(0.5.dp, if (isOrbActive) JarvisCyan else Color.Gray, RoundedCornerShape(6.dp))
+                            .clickable {
+                                if (isOrbActive) {
+                                    com.example.jarvis.overlay.FloatingArcOrbService.stop(context)
+                                } else {
+                                    if (com.example.jarvis.overlay.FloatingArcOrbService.isOverlayPermitted(context)) {
+                                        com.example.jarvis.overlay.FloatingArcOrbService.start(context)
+                                    } else {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                                            val intent = android.content.Intent(
+                                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                android.net.Uri.parse("package:${context.packageName}")
+                                            ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
+                                            context.startActivity(intent)
+                                            android.widget.Toast.makeText(context, "Grant 'Display over other apps' to enable Floating Arc Orb", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isOrbActive) JarvisCyanBright else Color.Gray)
+                            )
+                            Text(
+                                text = if (isOrbActive) "ORB ACTIVE" else "ACTIVATE ORB",
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOrbActive) JarvisCyanBright else JarvisTextSecondary
+                            )
+                        }
+                    }
+                }
+
+                // 4 Protocol Cards in scrolling Row
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.WbSunny,
+                            title = "Morning Protocol",
+                            desc = "Full audio briefing, telemetry & agenda",
+                            accentColor = Color(0xFFFFD700),
+                            onClick = { onQuickCommand("JARVIS, morning protocol") }
+                        )
+                    }
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.Bedtime,
+                            title = "Night Protocol",
+                            desc = "Standby volume, DND & day recap",
+                            accentColor = Color(0xFF90CAF9),
+                            onClick = { onQuickCommand("JARVIS, night protocol") }
+                        )
+                    }
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.Security,
+                            title = "Secure Perimeter",
+                            desc = "Sensor & privacy shield audit",
+                            accentColor = Color(0xFF00E676),
+                            onClick = { onQuickCommand("JARVIS, secure perimeter") }
+                        )
+                    }
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.Bolt,
+                            title = "Power Surge",
+                            desc = "Reactor core overclock to 100%",
+                            accentColor = Color(0xFF00E5FF),
+                            onClick = { onQuickCommand("JARVIS, power surge") }
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4c. QUICK DISPATCH & DAILY DRIVER MATRIX (WhatsApp, Camera, SMS, Calendar)
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "DAILY DRIVER INTELLIGENCE",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = JarvisCyan,
+                    letterSpacing = 1.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CyberActionCard(
+                        title = "WhatsApp",
+                        subtitle = "Voice & text message dispatch",
+                        icon = Icons.Default.Chat,
+                        accentColor = Color(0xFF25D366),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onQuickCommand("Send whatsapp message") }
+                    )
+
+                    CyberActionCard(
+                        title = "AI Camera",
+                        subtitle = "Live OCR & visual inspect",
+                        icon = Icons.Default.CameraAlt,
+                        accentColor = JarvisCyan,
+                        modifier = Modifier.weight(1f),
+                        onClick = onVisionClick
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CyberActionCard(
+                        title = "SMS Direct",
+                        subtitle = "Instant cellular text compose",
+                        icon = Icons.Default.Message,
+                        accentColor = JarvisElectricBlue,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onQuickCommand("Send SMS text") }
+                    )
+
+                    CyberActionCard(
+                        title = "Calendar",
+                        subtitle = "Meetings & agenda sync",
+                        icon = Icons.Default.CalendarMonth,
+                        accentColor = JarvisAmber,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onQuickCommand("Schedule meeting on calendar") }
+                    )
                 }
             }
         }
@@ -532,3 +779,60 @@ private fun QuickActionChip(
         }
     }
 }
+
+@Composable
+private fun StarkProtocolCard(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+    accentColor: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .width(170.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xEE0A1224))
+            .border(1.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+            .padding(12.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(accentColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Text(
+                    text = title,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = JarvisTextPrimary
+                )
+            }
+            Text(
+                text = desc,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.SansSerif,
+                color = JarvisTextSecondary,
+                lineHeight = 13.sp,
+                maxLines = 2
+            )
+        }
+    }
+}
+

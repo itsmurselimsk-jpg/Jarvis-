@@ -19,10 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -35,6 +38,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jarvis.model.ProviderSettings
+import com.example.jarvis.model.VoiceSynthesisEngine
 import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorder
@@ -60,6 +65,7 @@ import com.example.jarvis.ui.theme.JarvisSurfaceElevated
 import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
+import com.example.jarvis.voice.HumanVoiceEngine
 import com.example.jarvis.voice.SupportedLanguage
 import com.example.jarvis.voice.VoiceProfileType
 
@@ -71,6 +77,17 @@ fun VoiceSelectionScreen(
 ) {
     val profiles = VoiceProfileType.values().toList()
     var languageDropdownOpen by remember { mutableStateOf(false) }
+    var geminiVoiceDropdownOpen by remember { mutableStateOf(false) }
+    val isSpeaking by HumanVoiceEngine.isSpeaking.collectAsState()
+    val lastVoiceUsed by HumanVoiceEngine.lastVoiceUsed.collectAsState()
+
+    val geminiVoices = listOf(
+        Pair("Puck", "British Refined (Paul Bettany style)"),
+        Pair("Charon", "Deep Resonant Baritone"),
+        Pair("Fenrir", "Assertive Operational Command"),
+        Pair("Aoede", "Warm & Melodic Conversational"),
+        Pair("Kore", "Crisp Intelligent Synthetic Female")
+    )
 
     LazyColumn(
         modifier = Modifier
@@ -83,17 +100,247 @@ fun VoiceSelectionScreen(
         item {
             Column {
                 Text(
-                    text = "VOCAL PROFILES & SYNTHESIS CALIBRATION",
+                    text = "HUMAN VOICE & SYNTHESIS CALIBRATION",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     color = JarvisCyan
                 )
                 Text(
-                    text = "Configure acoustic persona, resonance, and multilingual phonetics",
+                    text = "Dual-Engine: Gemini Studio Cloud Realism + On-Device Neural WaveNet",
                     fontSize = 11.sp,
                     color = JarvisTextSecondary
                 )
+            }
+        }
+
+        // Live Voice Engine Status
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0D1726))
+                    .border(0.5.dp, JarvisCyan.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isSpeaking) JarvisGreen else JarvisCyan)
+                        )
+                        Column {
+                            Text(
+                                text = if (isSpeaking) "ACTIVE SYNTHESIS IN PROGRESS" else "VOICE ENGINE ACTIVE",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (isSpeaking) JarvisGreen else JarvisCyan
+                            )
+                            Text(
+                                text = lastVoiceUsed,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = JarvisTextPrimary
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF14243C))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = currentSettings.voiceSynthesisEngine.title.take(18),
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = JarvisCyanBright
+                        )
+                    }
+                }
+            }
+        }
+
+        // Voice Engine Selector Card
+        item {
+            Text(
+                text = "SYNTHESIS ENGINE ARCHITECTURE",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = JarvisTextSecondary
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                VoiceSynthesisEngine.values().forEach { engine ->
+                    val isEngineSelected = currentSettings.voiceSynthesisEngine == engine
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isEngineSelected) Color(0xFF0B2138) else Color(0xFF090E1A))
+                            .border(
+                                if (isEngineSelected) 1.2.dp else 0.5.dp,
+                                if (isEngineSelected) JarvisCyan else JarvisBorderSubtle,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable {
+                                onUpdateSettings(currentSettings.copy(voiceSynthesisEngine = engine))
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isEngineSelected) JarvisCyan else Color(0xFF14243C)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = when (engine) {
+                                            VoiceSynthesisEngine.HYBRID_AUTO -> Icons.Default.AutoAwesome
+                                            VoiceSynthesisEngine.GEMINI_STUDIO -> Icons.Default.Cloud
+                                            VoiceSynthesisEngine.NEURAL_DEVICE -> Icons.Default.Speed
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (isEngineSelected) Color.Black else JarvisCyan
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = engine.title,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isEngineSelected) JarvisCyanBright else JarvisTextPrimary
+                                    )
+                                    Text(
+                                        text = engine.description,
+                                        fontSize = 10.sp,
+                                        color = JarvisTextSecondary,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+
+                            if (isEngineSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = JarvisCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Gemini Voice Persona Picker (when Studio or Hybrid is selected)
+        if (currentSettings.voiceSynthesisEngine != VoiceSynthesisEngine.NEURAL_DEVICE) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF090E1A))
+                        .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = JarvisAmber,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Gemini Studio Voice Persona",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = JarvisTextPrimary
+                                    )
+                                    Text(
+                                        text = "Ultra-realistic human vocal timbre & breathing",
+                                        fontSize = 10.sp,
+                                        color = JarvisTextDim
+                                    )
+                                }
+                            }
+
+                            Box {
+                                OutlinedButton(
+                                    onClick = { geminiVoiceDropdownOpen = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, JarvisAmber),
+                                    modifier = Modifier.testTag("gemini_voice_picker_button")
+                                ) {
+                                    Text(
+                                        text = currentSettings.geminiVoiceName,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = JarvisAmber
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = geminiVoiceDropdownOpen,
+                                    onDismissRequest = { geminiVoiceDropdownOpen = false }
+                                ) {
+                                    geminiVoices.forEach { (vName, vDesc) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(text = vName, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                                    Text(text = vDesc, fontSize = 10.sp, color = JarvisTextSecondary)
+                                                }
+                                            },
+                                            onClick = {
+                                                onUpdateSettings(currentSettings.copy(geminiVoiceName = vName))
+                                                geminiVoiceDropdownOpen = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -131,7 +378,7 @@ fun VoiceSelectionScreen(
                                     color = JarvisTextPrimary
                                 )
                                 Text(
-                                    text = "English, Bengali, and Hindi supported seamlessly",
+                                    text = "English, Bengali, Hindi & Hinglish supported",
                                     fontSize = 10.sp,
                                     color = JarvisTextDim
                                 )
@@ -182,7 +429,7 @@ fun VoiceSelectionScreen(
         // Voice Profiles Section
         item {
             Text(
-                text = "SELECTABLE VOCAL PROFILES",
+                text = "CALIBRATED VOCAL PERSONAS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -279,8 +526,9 @@ fun VoiceSelectionScreen(
                             onClick = {
                                 val testPhrase = when (SupportedLanguage.fromCode(currentSettings.languageCode)) {
                                     SupportedLanguage.BENGALI -> "আমি জারভিস। সব সিস্টেম স্বাভাবিক এবং কার্যকর।"
-                                    SupportedLanguage.HINDI -> "मैं जार्विस हूँ। सभी सिस्टम सामान्य और चालू हैं।"
-                                    else -> "JARVIS vocal matrix online and ready for deployment, Sir."
+                                    SupportedLanguage.HINDI -> "नमस्ते सर, मैं जार्विस हूँ। सभी सिस्टम सामान्य और चालू हैं।"
+                                    SupportedLanguage.HINGLISH -> "Haan Sir, main JARVIS hoon. Sabhi systems online hain."
+                                    else -> profile.previewPhrase
                                 }
                                 onTestSpeak(
                                     testPhrase,
@@ -316,7 +564,7 @@ fun VoiceSelectionScreen(
         // Custom Fine Tuning
         item {
             Text(
-                text = "ACOUSTIC FINE-TUNING",
+                text = "ACOUSTIC CADENCE & MODULATION",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -390,3 +638,4 @@ fun VoiceSelectionScreen(
         }
     }
 }
+

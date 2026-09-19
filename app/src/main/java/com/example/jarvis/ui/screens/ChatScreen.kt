@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
@@ -93,7 +94,9 @@ fun ChatScreen(
     onRetryMessage: () -> Unit,
     onClearChat: () -> Unit,
     onVoiceClick: () -> Unit = {},
-    onVisionClick: () -> Unit = {}
+    onVisionClick: () -> Unit = {},
+    isOfflineBrain: Boolean = false,
+    onNavigateSettings: () -> Unit = {}
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -168,11 +171,11 @@ fun ChatScreen(
                         text = when (jarvisState) {
                             JarvisState.THINKING -> "Synthesizing response..."
                             JarvisState.SPEAKING -> "Transmitting response..."
-                            else -> "Encrypted Stream • Active"
+                            else -> if (isOfflineBrain) "Offline Mode • Basic Responses" else "Cloud Matrix Active • Ultra Intelligence"
                         },
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = JarvisTextDim
+                        color = if (isOfflineBrain) JarvisAmber else JarvisTextDim
                     )
                 }
             }
@@ -202,6 +205,53 @@ fun ChatScreen(
                         contentDescription = "Clear Conversation",
                         tint = JarvisTextDim,
                         modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Offline notice banner with direct Settings shortcut
+        if (isOfflineBrain) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF1B150A))
+                    .border(0.8.dp, JarvisAmber.copy(alpha = 0.5f))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Offline Notice",
+                            tint = JarvisAmber,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Offline Mode: Add free Gemini or OpenAI key in Settings for full ChatGPT-level replies.",
+                            fontSize = 11.sp,
+                            color = JarvisAmber,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SETTINGS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = JarvisCyanBright,
+                        modifier = Modifier
+                            .clickable { onNavigateSettings() }
+                            .padding(4.dp)
                     )
                 }
             }

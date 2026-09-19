@@ -22,7 +22,7 @@ import kotlin.math.PI
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
-class JarvisHologramUltronUnitTest {
+class JarvisHologramCyberneticUnitTest {
 
     private lateinit var context: Context
     private lateinit var bridge: AndroidBridge

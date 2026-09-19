@@ -113,6 +113,11 @@ class AgentBrain(
         registry.register(WebResearchTool())
         registry.register(DeepResearchTool())
         registry.register(OrbCoreTool())
+        registry.register(TacticalTool())
+        registry.register(StarkProtocolTool())
+        registry.register(WhatsAppMessagingTool())
+        registry.register(SmsMessagingTool())
+        registry.register(CalendarTool())
         registry.register(com.example.jarvis.automation.AutomationTool(automationOrchestrator))
         pluginManager.syncToolsWithBrain(this)
     }

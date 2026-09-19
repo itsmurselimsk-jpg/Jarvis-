@@ -54,7 +54,9 @@ enum class SubScreen {
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
 
     val repository = JarvisRepository(application)
-    val bridge = AndroidBridge(application)
+    val bridge = AndroidBridge(application).apply {
+        this.repository = repository
+    }
     val aiProvider = JarvisUnifiedAIProvider(repository)
     val privacyAuditor = PrivacyAuditor(application, repository)
     val authManager = AuthManager(application)

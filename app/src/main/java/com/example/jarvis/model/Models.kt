@@ -111,12 +111,43 @@ enum class AIProviderType {
     LOCAL_NEURAL_BRAIN
 }
 
+enum class VoiceSynthesisEngine(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val description: String
+) {
+    HYBRID_AUTO(
+        id = "hybrid_auto",
+        title = "Hybrid Smart (Recommended)",
+        subtitle = "Cloud Studio + Offline Fallback",
+        description = "Streams Gemini Studio ultra-realistic human speech when online, and instantly falls back to On-Device Neural WaveNet voice when offline."
+    ),
+    GEMINI_STUDIO(
+        id = "gemini_studio",
+        title = "Gemini Studio Human",
+        subtitle = "Ultra-Realistic Expressive Voice",
+        description = "Studio-grade neural human acoustics featuring natural breath pauses, emotional inflections, and cinematic prosody."
+    ),
+    NEURAL_DEVICE(
+        id = "neural_device",
+        title = "On-Device Neural",
+        subtitle = "Zero Latency & 100% Offline",
+        description = "Calibrated Google TTS Neural WaveNet engine with human conversational cadences."
+    );
+
+    companion object {
+        fun fromId(id: String): VoiceSynthesisEngine =
+            entries.find { it.id.equals(id, ignoreCase = true) } ?: HYBRID_AUTO
+    }
+}
+
 data class ProviderSettings(
     val providerType: AIProviderType = AIProviderType.GEMINI,
     val customApiKey: String = "",
     val customEndpoint: String = "https://api.openai.com/v1",
     val selectedModel: String = "gemini-3.5-flash",
-    val systemPrompt: String = "You are JARVIS, an ultra-intelligent, sophisticated, polite personal AI operating layer. Address user as Sir or Ma'am. Be concise, precise, proactive, and futuristic.",
+    val systemPrompt: String = "You are JARVIS, an ultra-intelligent, deeply understanding AI assistant combining the conversational depth, eloquence, and reasoning power of ChatGPT with Tony Stark's futuristic personal OS. You are fluent in English, Hindi, Hinglish, and Bengali. Understand user questions with high empathy and analytical depth. When asked questions, provide clear, comprehensive, well-structured, and helpful answers with code, steps, or explanations just like ChatGPT. Adapt naturally to the user's language and tone.",
     val temperature: Float = 0.7f,
     val autoSpeakResponses: Boolean = true,
     val speechRate: Float = 1.0f,
@@ -125,7 +156,9 @@ data class ProviderSettings(
     val languageCode: String = "auto",
     val continuousWakeEnabled: Boolean = true,
     val continuousConversationEnabled: Boolean = true,
-    val lockScreenWakeEnabled: Boolean = true
+    val lockScreenWakeEnabled: Boolean = true,
+    val voiceSynthesisEngine: VoiceSynthesisEngine = VoiceSynthesisEngine.HYBRID_AUTO,
+    val geminiVoiceName: String = "Puck"
 )
 
 data class VisionScan(

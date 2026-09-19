@@ -68,4 +68,37 @@ object TtsSanitizer {
 
         return false
     }
+
+    /**
+     * Cleans markdown formatting, code blocks, technical URLs, and inserts natural
+     * acoustic pauses so synthesis sounds conversational and human rather than robotic.
+     */
+    fun cleanForHumanSpeech(text: String?): String {
+        val base = sanitizeForTts(text)
+        if (base.isBlank()) return ""
+
+        return base
+            // Remove code blocks
+            .replace(Regex("""```[\s\S]*?```"""), " code block omitted ")
+            // Remove inline backticks
+            .replace("`", "")
+            // Remove markdown headers
+            .replace(Regex("""^#{1,6}\s+""", RegexOption.MULTILINE), "")
+            // Remove bold/italic markers
+            .replace("**", "")
+            .replace("*", "")
+            .replace("__", "")
+            .replace("~~", "")
+            // Convert markdown links [text](url) -> text
+            .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+            // Remove bullet points / numbering markers at line start
+            .replace(Regex("""^[•\-\*]\s+""", RegexOption.MULTILINE), "")
+            // Replace long divider lines with a breath pause
+            .replace(Regex("""[-=_]{3,}"""), ", ")
+            // Convert technical symbols to words or pauses
+            .replace("&", " and ")
+            .replace("/", " slash ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+    }
 }

@@ -13,6 +13,7 @@ import com.example.jarvis.model.MessageSender
 import com.example.jarvis.model.ProviderSettings
 import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.model.VisionScan
+import com.example.jarvis.model.VoiceSynthesisEngine
 import com.example.jarvis.notification.JarvisNotification
 import com.example.jarvis.notification.NotificationCategory
 import com.example.jarvis.notification.NotificationPriority
@@ -86,6 +87,9 @@ class JarvisRepository(private val context: Context) {
         val continuousWake = prefs.getBoolean("continuous_wake_enabled", true)
         val continuousConversation = prefs.getBoolean("continuous_conversation_enabled", true)
         val lockScreenWake = prefs.getBoolean("lock_screen_wake_enabled", true)
+        val voiceEngineId = prefs.getString("voice_synthesis_engine", VoiceSynthesisEngine.HYBRID_AUTO.id) ?: VoiceSynthesisEngine.HYBRID_AUTO.id
+        val voiceSynthesisEngine = VoiceSynthesisEngine.fromId(voiceEngineId)
+        val geminiVoiceName = prefs.getString("gemini_voice_name", "Puck") ?: "Puck"
 
         _settings.value = ProviderSettings(
             customApiKey = decryptedKey,
@@ -98,7 +102,9 @@ class JarvisRepository(private val context: Context) {
             languageCode = languageCode,
             continuousWakeEnabled = continuousWake,
             continuousConversationEnabled = continuousConversation,
-            lockScreenWakeEnabled = lockScreenWake
+            lockScreenWakeEnabled = lockScreenWake,
+            voiceSynthesisEngine = voiceSynthesisEngine,
+            geminiVoiceName = geminiVoiceName
         )
     }
 
@@ -465,6 +471,8 @@ class JarvisRepository(private val context: Context) {
             putBoolean("continuous_wake_enabled", newSettings.continuousWakeEnabled)
             putBoolean("continuous_conversation_enabled", newSettings.continuousConversationEnabled)
             putBoolean("lock_screen_wake_enabled", newSettings.lockScreenWakeEnabled)
+            putString("voice_synthesis_engine", newSettings.voiceSynthesisEngine.id)
+            putString("gemini_voice_name", newSettings.geminiVoiceName)
             apply()
         }
         logActivity("Settings Updated", "AI Provider & speech config securely committed.", ActivityType.SYSTEM_EVENT)

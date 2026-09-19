@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,14 +46,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.jarvis.ui.components.HologramTheme
+import com.example.jarvis.ui.components.HologramThemeManager
 import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisCyan
 import com.example.jarvis.ui.theme.JarvisCyanBright
 import com.example.jarvis.ui.theme.JarvisElectricBlue
 import com.example.jarvis.ui.theme.JarvisRed
+import com.example.jarvis.voice.CyberneticAudioEngine
 
 /**
- * Holographic HUD Scanline and Corner Reticles inspired by the Ultron UI.
+ * Holographic HUD Scanline and Corner Reticles for the J.A.R.V.I.S. Interface.
  */
 @Composable
 fun HolographicScanlines(
@@ -109,7 +114,7 @@ fun HolographicCornerBrackets(
 }
 
 /**
- * Ultron-style Camera Gesture Preview HUD Panel.
+ * J.A.R.V.I.S. Camera Gesture Preview HUD Panel.
  */
 @Composable
 fun GestureCameraPanel(
@@ -216,7 +221,10 @@ fun GestureCameraPanel(
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color(0xFF0F1A2A))
                         .border(1.dp, JarvisBorderSubtle(), RoundedCornerShape(4.dp))
-                        .clickable { onZoomOut() }
+                        .clickable {
+                            CyberneticAudioEngine.playOrbBeep(900f, 30)
+                            onZoomOut()
+                        }
                         .testTag("orb_zoom_out"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -235,7 +243,10 @@ fun GestureCameraPanel(
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color(0xFF0F1A2A))
                         .border(1.dp, JarvisBorderSubtle(), RoundedCornerShape(4.dp))
-                        .clickable { onZoomIn() }
+                        .clickable {
+                            CyberneticAudioEngine.playOrbBeep(1500f, 30)
+                            onZoomIn()
+                        }
                         .testTag("orb_zoom_in"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -254,7 +265,10 @@ fun GestureCameraPanel(
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color(0xFF0F1A2A))
                         .border(1.dp, JarvisBorderSubtle(), RoundedCornerShape(4.dp))
-                        .clickable { onReset() }
+                        .clickable {
+                            CyberneticAudioEngine.playOrbBeep(1200f, 40)
+                            onReset()
+                        }
                         .padding(horizontal = 8.dp)
                         .testTag("orb_reset"),
                     contentAlignment = Alignment.Center
@@ -284,7 +298,10 @@ fun GestureCameraPanel(
                         if (isGestureActive) JarvisCyanBright else JarvisCyan.copy(alpha = 0.4f),
                         RoundedCornerShape(4.dp)
                     )
-                    .clickable { onToggleGesture() }
+                    .clickable {
+                        CyberneticAudioEngine.playScanPing()
+                        onToggleGesture()
+                    }
                     .testTag("toggle_gestures_button"),
                 contentAlignment = Alignment.Center
             ) {
@@ -296,6 +313,75 @@ fun GestureCameraPanel(
                     letterSpacing = 1.sp,
                     color = if (isGestureActive) JarvisCyanBright else JarvisCyan
                 )
+            }
+
+            // Theme Matrix Quick Switcher
+            HolographicThemeSelector(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/**
+ * Cybernetic Theme Matrix Selector for switching between J.A.R.V.I.S. CLASSIC, COMBAT CRIMSON, ARC GOLD, QUANTUM, and STEALTH cores.
+ */
+@Composable
+fun HolographicThemeSelector(
+    modifier: Modifier = Modifier
+) {
+    val activeTheme by HologramThemeManager.currentTheme.collectAsState()
+
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF0A1220))
+            .border(0.8.dp, activeTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
+            .padding(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "CORE MATRIX",
+            fontSize = 8.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = activeTheme.primary.copy(alpha = 0.8f),
+            letterSpacing = 1.sp
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            HologramTheme.entries.forEach { theme ->
+                val isSelected = theme == activeTheme
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (isSelected) theme.primary.copy(alpha = 0.3f) else Color(0xFF101824))
+                        .border(
+                            width = if (isSelected) 1.2.dp else 0.5.dp,
+                            color = if (isSelected) theme.primary else theme.primary.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(2.dp)
+                        )
+                        .clickable {
+                            HologramThemeManager.setTheme(theme)
+                            if (theme == HologramTheme.JARVIS_CRIMSON) {
+                                CyberneticAudioEngine.playShieldEngage()
+                            } else {
+                                CyberneticAudioEngine.playReactorSurge(200)
+                            }
+                        }
+                        .testTag("theme_chip_${theme.id}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(theme.primary)
+                    )
+                }
             }
         }
     }

@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
@@ -128,6 +129,50 @@ fun VisionScreen(
         if (activeResult != null && activeResult != currentVisionResult) {
             currentVisionResult = activeResult
             derivedActions = SensitiveDataFilter.extractActions(activeResult.extractedText)
+        }
+    }
+
+    // Camera capture launcher for live photo analysis
+    val cameraCaptureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bmp: Bitmap? ->
+        if (bmp != null) {
+            currentBitmap = bmp
+            currentUri = null
+            isAnalyzing = true
+            localSummary = null
+            coroutineScope.launch {
+                try {
+                    val result = visionEngine.processBitmap(bmp)
+                    currentVisionResult = result
+                    onSetActiveResult(result, null)
+
+                    val actions = if (result.success) {
+                        SensitiveDataFilter.extractActions(result.extractedText)
+                    } else emptyList()
+                    derivedActions = actions
+
+                    val scan = VisionScan(
+                        uriString = "camera_${System.currentTimeMillis()}",
+                        fileName = "LIVE_CAPTURE_${System.currentTimeMillis()}.jpg",
+                        fileSizeFormatted = "${(bmp.byteCount / 1024).coerceAtLeast(1)} KB",
+                        analysisResult = if (result.success) {
+                            if (result.extractedText.isNotBlank()) {
+                                "Live Optical Scan: ${result.extractedText.length} chars (${result.detectedLanguage ?: "Latin"})."
+                            } else {
+                                "Live camera frame captured. No text detected."
+                            }
+                        } else {
+                            "Failed: ${result.errorMessage}"
+                        }
+                    )
+                    onAddScan(scan)
+                } catch (e: Exception) {
+                    currentVisionResult = VisionResult.failure("Camera scan error: ${e.message}", null)
+                } finally {
+                    isAnalyzing = false
+                }
+            }
         }
     }
 
@@ -232,19 +277,32 @@ fun VisionScreen(
                 )
             }
 
-            Button(
-                onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = JarvisCyan, contentColor = Color.Black),
-                modifier = Modifier.testTag("scan_image_button")
-            ) {
-                Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.size(4.dp))
-                Text("SCAN IMAGE", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { cameraCaptureLauncher.launch(null) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = JarvisCyanBright, contentColor = Color.Black),
+                    modifier = Modifier.testTag("camera_capture_button")
+                ) {
+                    Icon(imageVector = Icons.Default.CameraAlt, contentDescription = "Camera", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text("CAMERA", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+
+                Button(
+                    onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = JarvisCyan, contentColor = Color.Black),
+                    modifier = Modifier.testTag("scan_image_button")
+                ) {
+                    Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text("GALLERY", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
             }
         }
 

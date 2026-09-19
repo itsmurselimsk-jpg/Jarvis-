@@ -30,6 +30,7 @@ class JarvisInformationExtractionUnitTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         repository = JarvisRepository(context)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
     }
 
     @Test
@@ -199,6 +200,7 @@ class JarvisInformationExtractionUnitTest {
 
     @Test
     fun testNoAutomaticMemoryPersistence() {
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
         val initialMemoryCount = repository.memories.value.size
 
         // Extract complex text
@@ -208,6 +210,7 @@ class JarvisInformationExtractionUnitTest {
         assertFalse(extracted.isEmpty())
 
         // Ensure memories collection in repository was not touched
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
         val postExtractionMemoryCount = repository.memories.value.size
         assertEquals(initialMemoryCount, postExtractionMemoryCount)
     }

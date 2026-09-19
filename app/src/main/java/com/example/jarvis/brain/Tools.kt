@@ -1380,16 +1380,17 @@ class DocumentIntelligenceTool : Tool {
     }
 }
 
-// 27. HOLOGRAPHIC ORB CORE & ULTRON TELEMETRY TOOL
+// 27. HOLOGRAPHIC ORB CORE TELEMETRY TOOL
 class OrbCoreTool : Tool {
     override val name = "OrbCore"
-    override val description = "Monitors and controls the 3D Holographic Cybernetic Core, adjusts rotation modes, and inspects neural telemetry"
+    override val description = "Monitors and controls the J.A.R.V.I.S. 3D Holographic Cybernetic Core, adjusts rotation modes, switches core themes, and inspects neural telemetry"
     override val riskLevel = RiskLevel.SAFE
     override val permissions = emptyList<String>()
 
     override suspend fun execute(input: String, context: ToolContext): ToolResult {
         val lower = input.lowercase()
         val action = when {
+            lower.contains("theme") || lower.contains("mode") || lower.contains("crimson") || lower.contains("combat") || lower.contains("gold") || lower.contains("emerald") || lower.contains("stealth") || lower.contains("classic") -> "THEME_SWITCH"
             lower.contains("reset") -> "RESET_ORIENTATION"
             lower.contains("overclock") || lower.contains("boost") -> "OVERCLOCK_MATRIX"
             lower.contains("spin") || lower.contains("rotate") -> "SPIN_SURGE"
@@ -1398,31 +1399,55 @@ class OrbCoreTool : Tool {
             else -> "STATUS_TELEMETRY"
         }
 
+        var themeChanged = false
+        var targetThemeName = ""
+
         val text = buildString {
             appendLine("J.A.R.V.I.S. HOLOGRAPHIC CORE MATRIX:")
             when (action) {
+                "THEME_SWITCH" -> {
+                    val newTheme = com.example.jarvis.ui.components.HologramThemeManager.setThemeByName(lower)
+                    themeChanged = true
+                    targetThemeName = newTheme.displayName
+                    if (newTheme == com.example.jarvis.ui.components.HologramTheme.JARVIS_CRIMSON) {
+                        com.example.jarvis.voice.CyberneticAudioEngine.playShieldEngage()
+                    } else {
+                        com.example.jarvis.voice.CyberneticAudioEngine.playReactorSurge()
+                    }
+                    appendLine("• Holographic Core Theme: Engaged ${newTheme.displayName}")
+                    appendLine("• Optical Spectrum: Primary ${newTheme.primary}, Secondary ${newTheme.secondary}")
+                    appendLine("• Mode Specification: ${newTheme.description}")
+                    appendLine("• Quantum Telemetry: Full color matrix synced across HUD, 3D Core, and Viewport")
+                }
                 "RESET_ORIENTATION" -> {
+                    com.example.jarvis.voice.CyberneticAudioEngine.playOrbBeep(1200f)
                     appendLine("• Orientation: Reset to Home Position (Pitch: 0.18 rad, Yaw: 0.00 rad)")
                     appendLine("• Zoom Factor: 1.00x (Standard Orbital Perspective)")
                     appendLine("• Alignment: 3D Geodesic Coordinate Lock Verified")
                 }
                 "OVERCLOCK_MATRIX" -> {
+                    com.example.jarvis.voice.CyberneticAudioEngine.playReactorSurge()
                     appendLine("• Core Frequency: 4.2 GHz Turbo Matrix Active")
                     appendLine("• Harmonic Resonance: Peak 98.6%")
                     appendLine("• Sweeping Laser Scan: Frequency Doubled")
                     appendLine("• Reactor Surge: Maximum Additive Luminance")
                 }
                 "SPIN_SURGE" -> {
+                    com.example.jarvis.voice.CyberneticAudioEngine.playOrbBeep(1600f)
                     appendLine("• Angular Momentum: 3D Inertial Rotation Active")
                     appendLine("• Shell Velocity: Outer Shell +0.0015 rad/s, Inner Core -0.0050 rad/s")
                     appendLine("• Gyroscopic Stability: Optimal")
                 }
                 "GESTURE_MODE_TOGGLE" -> {
+                    com.example.jarvis.voice.CyberneticAudioEngine.playScanPing()
                     appendLine("• Gesture Tracking Interface: Optical/Touch Matrix Active")
                     appendLine("• Gestures Supported: 1-Hand Spin, 2-Hand Zoom, Double-Tap Reset")
                     appendLine("• Optical Confidence Threshold: 0.60")
                 }
                 else -> {
+                    com.example.jarvis.voice.CyberneticAudioEngine.playScanPing()
+                    val activeTheme = com.example.jarvis.ui.components.HologramThemeManager.getActiveTheme()
+                    appendLine("• Active Theme: ${activeTheme.displayName}")
                     appendLine("• Holographic Engine: 3D Layered Wireframe Matrix Online")
                     appendLine("• Outer Shell: 30+ Latitude Rings, 24 Meridians, 4 Cross-Bands")
                     appendLine("• Inner Core: 8 Geodesic Helical Spirals Operational")
@@ -1438,10 +1463,138 @@ class OrbCoreTool : Tool {
             success = true,
             output = text.trimEnd(),
             verified = true,
-            metadata = mapOf("action" to action, "engine" to "Holographic3D")
+            metadata = mapOf(
+                "action" to action,
+                "engine" to "Holographic3D",
+                "theme" to targetThemeName
+            )
         )
     }
 }
+
+// 28. TACTICAL & STRATEGIC REASONING TOOL
+class TacticalTool : Tool {
+    override val name = "Tactical"
+    override val description = "Formulates multi-phase tactical matrices, threat assessments, and contingency protocols inspired by J.A.R.V.I.S. and Mark 85 combat analysis"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val assessment = com.example.jarvis.tactical.TacticalAnalysisEngine.analyzeTacticalSituation(
+            situationQuery = input,
+            bridge = context.bridge,
+            repository = context.repository
+        )
+        com.example.jarvis.voice.CyberneticAudioEngine.playScanPing()
+        context.repository.logActivity("Tactical Matrix", "Threat: ${assessment.threatLevel}", ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = true,
+            output = assessment.rawSummary,
+            verified = true,
+            metadata = mapOf("threatLevel" to assessment.threatLevel, "readiness" to assessment.strategicReadiness)
+        )
+    }
+}
+
+// 29. WHATSAPP MESSAGING TOOL
+class WhatsAppMessagingTool : Tool {
+    override val name = "WhatsAppMessage"
+    override val description = "Drafts and sends WhatsApp messages to contacts or specific phone numbers (e.g., 'send whatsapp to John: I will be late')"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = emptyList<String>()
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        var recipient = ""
+        var message = ""
+
+        val cleaned = input.removePrefix("send whatsapp").removePrefix("whatsapp").removePrefix("to ").trim()
+        if (cleaned.contains(":") || cleaned.contains(" - ")) {
+            val delimiter = if (cleaned.contains(":")) ":" else " - "
+            recipient = cleaned.substringBefore(delimiter).removePrefix("to ").trim()
+            message = cleaned.substringAfter(delimiter).trim()
+        } else if (cleaned.contains(" say ") || cleaned.contains(" saying ") || cleaned.contains(" that ")) {
+            val parts = cleaned.split(Regex(" (say|saying|that) "), limit = 2)
+            recipient = parts[0].removePrefix("to ").trim()
+            message = if (parts.size > 1) parts[1].trim() else ""
+        } else {
+            recipient = cleaned
+            message = "Hello from JARVIS"
+        }
+
+        val (success, msg) = context.bridge.sendWhatsAppMessage(recipient, message)
+        context.repository.logActivity("WhatsApp Dispatch", "Recipient: $recipient", ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = success,
+            output = msg,
+            verified = success
+        )
+    }
+}
+
+// 30. SMS MESSAGING TOOL
+class SmsMessagingTool : Tool {
+    override val name = "SmsMessage"
+    override val description = "Drafts and sends standard SMS text messages to phone numbers or contacts (e.g., 'send sms to 9876543210: meeting started')"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = listOf(android.Manifest.permission.SEND_SMS)
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        var recipient = ""
+        var message = ""
+
+        val cleaned = input.removePrefix("send sms").removePrefix("sms").removePrefix("send text").removePrefix("text").removePrefix("to ").trim()
+        if (cleaned.contains(":") || cleaned.contains(" - ")) {
+            val delimiter = if (cleaned.contains(":")) ":" else " - "
+            recipient = cleaned.substringBefore(delimiter).removePrefix("to ").trim()
+            message = cleaned.substringAfter(delimiter).trim()
+        } else if (cleaned.contains(" say ") || cleaned.contains(" saying ") || cleaned.contains(" that ")) {
+            val parts = cleaned.split(Regex(" (say|saying|that) "), limit = 2)
+            recipient = parts[0].removePrefix("to ").trim()
+            message = if (parts.size > 1) parts[1].trim() else ""
+        } else {
+            recipient = cleaned
+            message = "Hello from JARVIS"
+        }
+
+        val (success, msg) = context.bridge.sendSmsMessage(recipient, message)
+        context.repository.logActivity("SMS Dispatch", "Recipient: $recipient", ActivityType.TOOL_EXECUTION)
+        return ToolResult(
+            success = success,
+            output = msg,
+            verified = success
+        )
+    }
+}
+
+// 31. CALENDAR EVENT TOOL
+class CalendarTool : Tool {
+    override val name = "CalendarEvent"
+    override val description = "Schedules events, meetings, or queries upcoming appointments from system calendar (e.g. 'schedule meeting with client tomorrow', 'what is on my calendar')"
+    override val riskLevel = RiskLevel.SAFE
+    override val permissions = listOf(android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR)
+
+    override suspend fun execute(input: String, context: ToolContext): ToolResult {
+        val lower = input.lowercase(java.util.Locale.ROOT)
+
+        if (lower.contains("upcoming") || lower.contains("what") || lower.contains("show") || lower.contains("agenda") || lower.contains("today")) {
+            val events = context.bridge.queryUpcomingCalendarEvents()
+            val text = if (events.isEmpty()) {
+                "No upcoming events found on your calendar for today."
+            } else {
+                "UPCOMING CALENDAR SCHEDULE:\n" + events.joinToString("\n")
+            }
+            return ToolResult(success = true, output = text, verified = true)
+        }
+
+        val title = input.removePrefix("schedule ").removePrefix("add event ").removePrefix("meeting ").removePrefix("calendar ").trim()
+        val (success, msg) = context.bridge.addCalendarEvent(
+            title = if (title.isBlank()) "Scheduled Meeting" else title
+        )
+        context.repository.logActivity("Calendar Sync", "Event: $title", ActivityType.TOOL_EXECUTION)
+        return ToolResult(success = success, output = msg, verified = success)
+    }
+}
+
 
 
 

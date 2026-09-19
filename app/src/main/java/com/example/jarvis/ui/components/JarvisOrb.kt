@@ -12,12 +12,14 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,19 +41,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.model.JarvisState
+import com.example.jarvis.ui.components.HologramThemeManager
 import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisCyan
 import com.example.jarvis.ui.theme.JarvisCyanBright
 import com.example.jarvis.ui.theme.JarvisElectricBlue
 import com.example.jarvis.ui.theme.JarvisPurpleHighlight
 import com.example.jarvis.ui.theme.JarvisRed
+import com.example.jarvis.voice.CyberneticAudioEngine
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
  * High-fidelity 3D Holographic JARVIS Cybernetic Orb.
- * Integrates Ultron's multi-layered wireframe spherical shells, sweeping scan rings,
+ * Integrates J.A.R.V.I.S. multi-layered wireframe spherical shells, sweeping scan rings,
  * spiral geodesic inner core, 3D floating telemetry code glyphs, and central icosahedron cage,
  * combined with touch interaction (drag to spin, pinch to zoom) and state-reactive acoustics.
  */
@@ -63,6 +67,9 @@ fun JarvisOrb(
     showHudControls: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    // Holographic Theme Matrix (JARVIS Cyan, Combat Crimson, Arc Gold, Quantum Green, Stealth Violet)
+    val currentTheme by HologramThemeManager.currentTheme.collectAsState()
+
     // Interactive 3D Camera Angles
     var userPitch by remember { mutableFloatStateOf(0.18f) }
     var userYaw by remember { mutableFloatStateOf(0f) }
@@ -178,18 +185,18 @@ fun JarvisOrb(
     )
 
     val targetPrimary = when (state) {
-        JarvisState.IDLE -> JarvisCyan
-        JarvisState.LISTENING -> JarvisCyanBright
-        JarvisState.SPEAKING -> JarvisElectricBlue
-        JarvisState.THINKING -> JarvisCyan
+        JarvisState.IDLE -> currentTheme.primary
+        JarvisState.LISTENING -> currentTheme.accent
+        JarvisState.SPEAKING -> currentTheme.secondary
+        JarvisState.THINKING -> currentTheme.primary
         JarvisState.ERROR -> JarvisRed
     }
 
     val targetSecondary = when (state) {
-        JarvisState.IDLE -> JarvisElectricBlue
-        JarvisState.LISTENING -> JarvisCyan
-        JarvisState.SPEAKING -> JarvisCyanBright
-        JarvisState.THINKING -> JarvisAmber
+        JarvisState.IDLE -> currentTheme.secondary
+        JarvisState.LISTENING -> currentTheme.primary
+        JarvisState.SPEAKING -> currentTheme.accent
+        JarvisState.THINKING -> currentTheme.accent
         JarvisState.ERROR -> JarvisAmber
     }
 
@@ -220,9 +227,15 @@ fun JarvisOrb(
         modifier = modifier
             .size(size)
             .testTag("jarvis_orb")
+            .clickable {
+                CyberneticAudioEngine.playOrbBeep(1800f, 40)
+                onClick()
+            }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { },
+                    onDragStart = {
+                        CyberneticAudioEngine.playOrbBeep(1200f, 25)
+                    },
                     onDragEnd = { },
                     onDragCancel = { },
                     onDrag = { change, dragAmount ->
@@ -303,7 +316,7 @@ fun JarvisOrb(
                 )
             }
 
-            // Ultron Cross-Meridian High-Intensity Targeting Bands
+            // J.A.R.V.I.S. Cross-Meridian High-Intensity Targeting Bands
             HolographicOrb3D.drawCrossMeridians(
                 drawScope = this,
                 center = center,

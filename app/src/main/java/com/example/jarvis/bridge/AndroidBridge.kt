@@ -23,6 +23,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.PowerManager
 import android.os.StatFs
+import android.provider.CalendarContract
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.speech.RecognitionListener
@@ -91,8 +92,12 @@ class AndroidBridge(private val context: Context) {
     private fun initTts() {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech?.language = Locale.US
+                textToSpeech?.language = Locale.UK
                 isTtsReady = true
+                try {
+                    selectBestNeuralVoice(Locale.UK, preferMale = true)
+                } catch (_: Exception) {}
+
                 textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
                         _isSpeaking.value = true
@@ -256,6 +261,8 @@ class AndroidBridge(private val context: Context) {
         }
     }
 
+    var repository: com.example.jarvis.storage.JarvisRepository? = null
+
     fun speak(
         text: String,
         speechRate: Float = 1.0f,
@@ -263,17 +270,49 @@ class AndroidBridge(private val context: Context) {
         locale: Locale? = null,
         onDone: (() -> Unit)? = null
     ) {
-        val sanitizedText = com.example.jarvis.voice.TtsSanitizer.sanitizeForTts(text)
+        if (!_isSpeakerEnabled.value) {
+            onDone?.invoke()
+            return
+        }
+
+        val settings = repository?.settings?.value
+        val profile = com.example.jarvis.voice.VoiceProfileType.fromName(settings?.voiceProfileName ?: "JARVIS Bettany")
+
+        com.example.jarvis.voice.HumanVoiceEngine.speak(
+            context = context,
+            text = text,
+            speechRate = speechRate,
+            pitch = pitch,
+            locale = locale,
+            voiceProfile = profile,
+            settings = settings,
+            bridge = this,
+            onDone = onDone
+        )
+    }
+
+    /**
+     * Speaks using local calibrated on-device Neural WaveNet TTS.
+     */
+    fun speakDeviceNeural(
+        sanitizedText: String,
+        speechRate: Float = 1.0f,
+        pitch: Float = 1.0f,
+        locale: Locale? = null,
+        voiceProfile: com.example.jarvis.voice.VoiceProfileType? = null,
+        onDone: (() -> Unit)? = null
+    ) {
         if (!isTtsReady || sanitizedText.isBlank() || !_isSpeakerEnabled.value) {
             onDone?.invoke()
             return
         }
         requestAudioFocus()
-        if (locale != null) {
-            try {
-                textToSpeech?.language = locale
-            } catch (_: Exception) {}
-        }
+        val targetLocale = locale ?: (voiceProfile?.preferredLocaleTag?.let { Locale.forLanguageTag(it) } ?: Locale.UK)
+        try {
+            textToSpeech?.language = targetLocale
+            selectBestNeuralVoice(targetLocale, preferMale = voiceProfile != com.example.jarvis.voice.VoiceProfileType.FRIDAY)
+        } catch (_: Exception) {}
+
         textToSpeech?.setSpeechRate(speechRate)
         textToSpeech?.setPitch(pitch)
         val utteranceId = "JARVIS_${System.currentTimeMillis()}"
@@ -292,6 +331,39 @@ class AndroidBridge(private val context: Context) {
         textToSpeech?.speak(sanitizedText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
+    /**
+     * Selects the highest quality Neural / Network / WaveNet voice available on device.
+     */
+    fun selectBestNeuralVoice(targetLocale: Locale, preferMale: Boolean = true): Boolean {
+        val tts = textToSpeech ?: return false
+        return try {
+            val availableVoices = tts.voices ?: return false
+            val matchingVoices = availableVoices.filter { voice ->
+                voice.locale.language.equals(targetLocale.language, ignoreCase = true)
+            }
+            if (matchingVoices.isEmpty()) return false
+
+            val bestVoice = matchingVoices.maxByOrNull { voice ->
+                var score = 0
+                val name = voice.name.lowercase()
+                if (name.contains("network")) score += 50
+                if (name.contains("neural") || name.contains("wavenet")) score += 40
+                if (name.contains("natural")) score += 30
+                if (voice.quality >= 400) score += 20
+                if (preferMale && (name.contains("male") || name.contains("rjs") || name.contains("g-network") || name.contains("en-gb-x-rjs"))) score += 20
+                if (!preferMale && (name.contains("female") || name.contains("sfg") || name.contains("woman"))) score += 20
+                score
+            }
+
+            if (bestVoice != null) {
+                tts.voice = bestVoice
+                true
+            } else false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun getInstalledTtsVoices(): List<String> {
         return try {
             textToSpeech?.voices?.map { "${it.name} (${it.locale.displayLanguage})" }?.take(15) ?: emptyList()
@@ -300,10 +372,15 @@ class AndroidBridge(private val context: Context) {
         }
     }
 
-    fun stopSpeaking() {
+    fun stopDeviceTts() {
         textToSpeech?.stop()
         abandonAudioFocus()
         _isSpeaking.value = false
+    }
+
+    fun stopSpeaking() {
+        com.example.jarvis.voice.HumanVoiceEngine.stop(this)
+        stopDeviceTts()
     }
 
     // FLASH LIGHT CONTROLLER & VERIFIER
@@ -453,6 +530,24 @@ class AndroidBridge(private val context: Context) {
         am.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI)
         refreshTelemetry()
         return true
+    }
+
+    fun setVolume(volumePercent: Int): Boolean = setMusicVolume(volumePercent)
+
+    fun vibrate(durationMs: Long = 100): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                vm?.defaultVibrator?.vibrate(android.os.VibrationEffect.createOneShot(durationMs, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                val v = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                v?.vibrate(durationMs)
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     // MEDIA CONTROLS
@@ -714,6 +809,182 @@ class AndroidBridge(private val context: Context) {
             }
         } catch (e: Exception) {
             Pair(false, "Failed to initiate call: ${e.message}")
+        }
+    }
+
+    // ==========================================
+    // WHATSAPP & SMS AUTOMATION
+    // ==========================================
+    fun resolveContactPhoneNumber(nameOrNumber: String): Pair<String, String?> {
+        val clean = nameOrNumber.trim()
+        val digitOnly = clean.filter { it.isDigit() || it == '+' }
+        if (digitOnly.length >= 3 && digitOnly.any { it.isDigit() }) {
+            return Pair(clean, digitOnly)
+        }
+        var contactName = clean
+        var phoneNumber: String? = null
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                val cursor: Cursor? = context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        ContactsContract.CommonDataKinds.Phone.NUMBER
+                    ),
+                    "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
+                    arrayOf("%$clean%"),
+                    null
+                )
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val nameIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        val numIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        if (nameIdx >= 0) contactName = it.getString(nameIdx)
+                        if (numIdx >= 0) phoneNumber = it.getString(numIdx)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return Pair(contactName, phoneNumber)
+    }
+
+    fun sendWhatsAppMessage(recipient: String, messageText: String): Pair<Boolean, String> {
+        val (contactName, phone) = resolveContactPhoneNumber(recipient)
+        val cleanNumber = phone?.filter { it.isDigit() }
+
+        return try {
+            if (!cleanNumber.isNullOrBlank()) {
+                val uri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanNumber&text=${Uri.encode(messageText)}")
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage("com.whatsapp")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                Pair(true, "Dispatched WhatsApp message draft to $contactName ($cleanNumber): \"$messageText\"")
+            } else {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    setPackage("com.whatsapp")
+                    putExtra(Intent.EXTRA_TEXT, messageText)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                Pair(true, "Opened WhatsApp with drafted text: \"$messageText\"")
+            }
+        } catch (e: Exception) {
+            try {
+                val fallbackIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, messageText)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(Intent.createChooser(fallbackIntent, "Send Message via").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+                Pair(true, "WhatsApp not reachable directly; opened system message share dialog.")
+            } catch (ex: Exception) {
+                Pair(false, "Failed to send WhatsApp message: ${ex.message}")
+            }
+        }
+    }
+
+    fun sendSmsMessage(recipient: String, messageText: String): Pair<Boolean, String> {
+        val (contactName, phone) = resolveContactPhoneNumber(recipient)
+        val targetNum = phone ?: recipient.trim()
+
+        return try {
+            val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:$targetNum")
+                putExtra("sms_body", messageText)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(smsIntent)
+            Pair(true, "Initiated SMS dispatch to $contactName ($targetNum): \"$messageText\"")
+        } catch (e: Exception) {
+            Pair(false, "Failed to initiate SMS: ${e.message}")
+        }
+    }
+
+    // ==========================================
+    // CALENDAR & APPOINTMENT SYNC
+    // ==========================================
+    fun addCalendarEvent(
+        title: String,
+        description: String = "",
+        location: String = "",
+        beginTimeMillis: Long = System.currentTimeMillis() + 3600000L,
+        endTimeMillis: Long = beginTimeMillis + 3600000L
+    ): Pair<Boolean, String> {
+        return try {
+            val intent = Intent(Intent.ACTION_INSERT).apply {
+                data = CalendarContract.Events.CONTENT_URI
+                putExtra(CalendarContract.Events.TITLE, title)
+                putExtra(CalendarContract.Events.DESCRIPTION, description)
+                putExtra(CalendarContract.Events.EVENT_LOCATION, location)
+                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTimeMillis)
+                putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Pair(true, "Created Calendar event draft for \"$title\".")
+        } catch (e: Exception) {
+            Pair(false, "Failed to create calendar event: ${e.message}")
+        }
+    }
+
+    fun queryUpcomingCalendarEvents(maxDays: Int = 1): List<String> {
+        val hasPermission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) return emptyList()
+
+        val results = mutableListOf<String>()
+        val startMillis = System.currentTimeMillis()
+        val endMillis = startMillis + (maxDays * 24 * 60 * 60 * 1000L)
+
+        val projection = arrayOf(
+            CalendarContract.Events.TITLE,
+            CalendarContract.Events.DTSTART,
+            CalendarContract.Events.EVENT_LOCATION
+        )
+        val selection = "(${CalendarContract.Events.DTSTART} >= ?) AND (${CalendarContract.Events.DTSTART} <= ?)"
+        val selectionArgs = arrayOf(startMillis.toString(), endMillis.toString())
+
+        try {
+            val cursor: Cursor? = context.contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                "${CalendarContract.Events.DTSTART} ASC"
+            )
+            cursor?.use {
+                val titleIdx = it.getColumnIndex(CalendarContract.Events.TITLE)
+                val startIdx = it.getColumnIndex(CalendarContract.Events.DTSTART)
+                val locIdx = it.getColumnIndex(CalendarContract.Events.EVENT_LOCATION)
+                val timeFormat = SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+
+                while (it.moveToNext()) {
+                    val title = if (titleIdx >= 0) it.getString(titleIdx) else "Event"
+                    val dt = if (startIdx >= 0) it.getLong(startIdx) else 0L
+                    val loc = if (locIdx >= 0) it.getString(locIdx) else null
+                    val timeStr = if (dt > 0) timeFormat.format(dt) else "Today"
+                    val locStr = if (!loc.isNullOrBlank()) " at $loc" else ""
+                    results.add("• $timeStr: $title$locStr")
+                }
+            }
+        } catch (_: Exception) {}
+        return results
+    }
+
+    fun openCalendar(): Pair<Boolean, String> {
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("content://com.android.calendar/time/${System.currentTimeMillis()}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Pair(true, "Opened system calendar.")
+        } catch (e: Exception) {
+            Pair(false, "Failed to open calendar: ${e.message}")
         }
     }
 

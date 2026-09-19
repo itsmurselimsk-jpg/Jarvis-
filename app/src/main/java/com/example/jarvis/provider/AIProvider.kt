@@ -316,25 +316,20 @@ object LocalNeuralBrainProvider {
         val cleanText = prompt.substringAfterLast("User: ").substringBefore("\n").trim()
         val textToProcess = if (cleanText.isNotBlank()) cleanText else prompt
         val intentResult = com.example.jarvis.intent.IntentClassifier.classify(textToProcess)
-        val langStyle = com.example.jarvis.personality.JarvisPersonality.detectLanguageStyle(textToProcess)
 
         val response = if (intentResult.intent == com.example.jarvis.intent.ConversationIntent.SYSTEM_STATUS) {
-            "All JARVIS subsystems are online. Battery, network, Wi-Fi, and memory databases are operating normally."
+            "All JARVIS subsystems are online. Core matrices, battery, network, Wi-Fi, and autonomous memory stores are operating normally."
         } else {
-            com.example.jarvis.personality.JarvisPersonality.generateConversationalResponse(
-                userInput = textToProcess,
-                intent = intentResult.intent,
-                languageStyle = langStyle
-            )
+            JarvisAutonomousBrain.generateAutonomousResponse(textToProcess)
         }
 
-        // Stream text smoothly
+        // Stream text smoothly with realistic cadence
         val words = response.split(" ")
         val sb = StringBuilder()
         for (w in words) {
             sb.append(w).append(" ")
             onChunkReceived(sb.toString().trimEnd())
-            delay(20)
+            delay(15)
         }
         return response
     }
@@ -354,6 +349,18 @@ object LocalNeuralBrainProvider {
             // Flashlight / Torch
             lower.contains("flashlight") || lower.contains("torch") || lower.contains("ফ্ল্যাশলাইট") || lower.contains("फ्लैशलाइट") || lower.contains("লাইট") ->
                 ToolDecision(true, "Flashlight", userInput, "Flashlight keyword detected")
+
+            // WhatsApp Messaging
+            lower.contains("whatsapp") || lower.contains("হোয়াটসঅ্যাপ") || lower.contains("व्हाट्सएप") ->
+                ToolDecision(true, "WhatsAppMessage", userInput, "WhatsApp dispatch request")
+
+            // SMS Messaging
+            lower.startsWith("send sms") || lower.startsWith("sms ") || lower.contains("sms bhejo") || lower.contains("text message") || lower.startsWith("send text") ->
+                ToolDecision(true, "SmsMessage", userInput, "SMS messaging dispatch request")
+
+            // Calendar & Events
+            lower.contains("calendar") || lower.contains("schedule meeting") || lower.contains("add event") || lower.contains("appointment") || lower.contains("agenda") || lower.contains("कैलेंडर") || lower.contains("ক্যালেন্ডার") ->
+                ToolDecision(true, "CalendarEvent", userInput, "Calendar scheduling and agenda query")
 
             // YouTube Search & Playback
             lower.contains("youtube") || lower.contains("ইউটিউব") || lower.contains("यूट्यूब") ->
@@ -417,10 +424,16 @@ object LocalNeuralBrainProvider {
             lower.contains("diagnostics") || lower.contains("self test") || lower.contains("system status") || lower.contains("health check") || lower.contains("run diagnostics") ->
                 ToolDecision(true, "Diagnostics", userInput, "Comprehensive subsystem diagnostic self-test")
 
-            // Holographic Orb Core / Ultron Matrix
+            // Holographic Orb Core Matrix
             lower.contains("orb") || lower.contains("hologram") || lower.contains("holographic") ||
-            lower.contains("ultron") || lower.contains("overclock core") || lower.contains("spin orb") ->
+            lower.contains("crimson mode") || lower.contains("overclock core") || lower.contains("spin orb") ||
+            lower.contains("core theme") || lower.contains("core mode") || lower.contains("arc reactor") ->
                 ToolDecision(true, "OrbCore", userInput, "Holographic Cybernetic Core control and telemetry")
+
+            // Tactical & Strategic Matrix (Combat Protocols)
+            lower.contains("tactical") || lower.contains("combat protocol") || lower.contains("threat assessment") ||
+            lower.contains("situation report") || lower.contains("sitrep") || lower.contains("mission plan") ->
+                ToolDecision(true, "Tactical", userInput, "Tactical situation analysis and strategic contingency planning")
 
             // Device Info / Hardware
             lower.contains("device info") || lower.contains("hardware") || lower.contains("specifications") || lower.contains("system telemetry") ->

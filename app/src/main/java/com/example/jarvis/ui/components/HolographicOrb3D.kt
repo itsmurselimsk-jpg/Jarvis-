@@ -14,8 +14,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * 3D Holographic Geometry and Projection Engine for JARVIS Cybernetic Core,
- * adapted from the Ultron 3D wireframe orb architecture.
+ * 3D Holographic Geometry and Projection Engine for JARVIS Cybernetic Core.
  */
 data class Point3D(val x: Float, val y: Float, val z: Float)
 
@@ -185,7 +184,7 @@ object HolographicOrb3D {
     }
 
     /**
-     * Draw Ultron's 4 Cross-Meridian High-Intensity Bands (the targeting crosshairs).
+     * Draw J.A.R.V.I.S. 4 Cross-Meridian High-Intensity Bands (targeting crosshairs).
      */
     fun drawCrossMeridians(
         drawScope: DrawScope,
@@ -221,7 +220,7 @@ object HolographicOrb3D {
     }
 
     /**
-     * Draw 8-strand Geodesic Helical Spirals for Inner Core (Ultron inner core layer 4).
+     * Draw 8-strand Geodesic Helical Spirals for Inner Core (J.A.R.V.I.S. inner core layer).
      */
     fun drawInnerSpiralCore(
         drawScope: DrawScope,

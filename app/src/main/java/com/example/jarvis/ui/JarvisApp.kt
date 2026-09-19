@@ -399,17 +399,23 @@ fun JarvisApp(
                                 }
                             )
 
-                            NavTab.CHAT -> ChatScreen(
-                                messages = messages,
-                                jarvisState = jarvisState,
-                                onSendMessage = { viewModel.sendUserMessage(it) },
-                                onCopyMessage = { viewModel.copyToClipboard(it) },
-                                onSpeakMessage = { viewModel.speakText(it) },
-                                onRetryMessage = { viewModel.retryLastMessage() },
-                                onClearChat = { viewModel.repository.clearMessages() },
-                                onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
-                                onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) }
-                            )
+                            NavTab.CHAT -> {
+                                val isOffline = settings.customApiKey.isBlank() &&
+                                        (com.example.BuildConfig.GEMINI_API_KEY.isBlank() || com.example.BuildConfig.GEMINI_API_KEY == "MY_GEMINI_API_KEY")
+                                ChatScreen(
+                                    messages = messages,
+                                    jarvisState = jarvisState,
+                                    onSendMessage = { viewModel.sendUserMessage(it) },
+                                    onCopyMessage = { viewModel.copyToClipboard(it) },
+                                    onSpeakMessage = { viewModel.speakText(it) },
+                                    onRetryMessage = { viewModel.retryLastMessage() },
+                                    onClearChat = { viewModel.repository.clearMessages() },
+                                    onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
+                                    onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) },
+                                    isOfflineBrain = isOffline,
+                                    onNavigateSettings = { viewModel.setTab(NavTab.SETTINGS) }
+                                )
+                            }
 
                             NavTab.VOICE -> com.example.jarvis.ui.screens.VoiceScreen(
                                 jarvisState = jarvisState,

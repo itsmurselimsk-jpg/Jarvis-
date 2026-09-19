@@ -198,7 +198,7 @@ fun VoiceScreen(
                     )
                 }
 
-                // Ultron Holographic HUD / Gestures Toggle Button
+                // J.A.R.V.I.S. Holographic HUD / Gestures Toggle Button
                 IconButton(
                     onClick = { showGesturePanel = !showGesturePanel },
                     modifier = Modifier

@@ -24,6 +24,7 @@ import com.example.jarvis.model.MessageSender
 import com.example.jarvis.provider.JarvisUnifiedAIProvider
 import com.example.jarvis.storage.JarvisRepository
 import com.example.jarvis.voice.ContinuousWakeEngine
+import com.example.jarvis.voice.CyberneticAudioEngine
 import com.example.jarvis.voice.JarvisOverlayHud
 import com.example.jarvis.voice.LanguageDetector
 import com.example.jarvis.voice.SupportedLanguage
@@ -72,6 +73,7 @@ class JarvisVoiceService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wakeEngine: ContinuousWakeEngine? = null
     private var overlayHud: JarvisOverlayHud? = null
+    private var smartBatteryMonitor: SmartBatteryMonitor? = null
 
     private lateinit var repository: JarvisRepository
     private lateinit var bridge: AndroidBridge
@@ -80,7 +82,9 @@ class JarvisVoiceService : Service() {
     override fun onCreate() {
         super.onCreate()
         repository = JarvisRepository(applicationContext)
-        bridge = AndroidBridge(applicationContext)
+        bridge = AndroidBridge(applicationContext).apply {
+            this.repository = this@JarvisVoiceService.repository
+        }
         val aiProvider = JarvisUnifiedAIProvider(repository)
         brain = AgentBrain(
             repository = repository,
@@ -93,6 +97,28 @@ class JarvisVoiceService : Service() {
         acquireWakeLock()
         createNotificationChannel()
         initWakeEngine()
+
+        // Smart Battery & Power Alerts
+        smartBatteryMonitor = SmartBatteryMonitor(
+            context = applicationContext,
+            scope = serviceScope,
+            onVoiceAlert = { alertText ->
+                serviceScope.launch {
+                    val settings = repository.settings.value
+                    if (settings.autoSpeakResponses) {
+                        bridge.speak(
+                            text = alertText,
+                            speechRate = settings.speechRate,
+                            pitch = settings.speechPitch
+                        )
+                    }
+                    overlayHud?.show(status = "BATTERY ALERT", transcript = alertText, isListening = false)
+                    repository.logActivity("Battery Alert", alertText, ActivityType.SYSTEM_EVENT)
+                }
+            }
+        ).apply {
+            startMonitoring()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -130,6 +156,7 @@ class JarvisVoiceService : Service() {
 
     private fun triggerWakeSession(wakeCheck: LanguageDetector.WakeWordCheck) {
         vibrateHapticFeedback()
+        CyberneticAudioEngine.playWakeChime()
 
         val settings = repository.settings.value
         val detectedLang = wakeCheck.language
@@ -319,6 +346,7 @@ class JarvisVoiceService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         _isServiceRunning.value = false
+        smartBatteryMonitor?.stopMonitoring()
         wakeEngine?.stop()
         overlayHud?.hide()
         bridge.destroy()
