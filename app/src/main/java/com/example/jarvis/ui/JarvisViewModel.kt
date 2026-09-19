@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
 enum class SubScreen {
     TOOLS,
     TASKS,
+    AUTOMATION,
+    FILES,
     MEMORY,
     ACTIVITY,
     VISION,

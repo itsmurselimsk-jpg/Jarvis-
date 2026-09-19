@@ -14,7 +14,10 @@ enum class GeneratedFileFormat(
     TXT("txt", "text/plain", false),
     MARKDOWN("md", "text/markdown", false),
     CSV("csv", "text/csv", false),
-    JSON("json", "application/json", false);
+    JSON("json", "application/json", false),
+    PDF("pdf", "application/pdf", true),
+    DOCX("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", true),
+    XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", true);
 
     companion object {
         fun fromExtension(ext: String): GeneratedFileFormat? {

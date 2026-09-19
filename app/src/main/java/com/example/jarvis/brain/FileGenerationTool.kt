@@ -23,7 +23,7 @@ import java.util.Locale
  */
 class FileGenerationTool : Tool {
     override val name = "FileGeneration"
-    override val description = "Generates verified, safe files in TXT, Markdown (.md), CSV, and JSON formats."
+    override val description = "Generates verified, safe files in PDF, DOCX, XLSX, CSV, JSON, TXT, and Markdown (.md) formats."
     override val riskLevel = RiskLevel.SAFE
     override val permissions = emptyList<String>()
 
@@ -35,6 +35,9 @@ class FileGenerationTool : Tool {
 
         // 1. Detect requested format
         val targetFormat = when {
+            lower.contains("pdf") -> GeneratedFileFormat.PDF
+            lower.contains("docx") || lower.contains("word") || lower.contains("doc") -> GeneratedFileFormat.DOCX
+            lower.contains("xlsx") || lower.contains("excel") || lower.contains("spreadsheet") || lower.contains("sheet") -> GeneratedFileFormat.XLSX
             lower.contains("csv") -> GeneratedFileFormat.CSV
             lower.contains("json") -> GeneratedFileFormat.JSON
             lower.contains("markdown") || lower.contains(".md") || lower.contains(" md ") -> GeneratedFileFormat.MARKDOWN

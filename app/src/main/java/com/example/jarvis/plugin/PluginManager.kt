@@ -39,9 +39,11 @@ class PluginManager(
         // 1. Register standard built-in plugins
         val productivityPlugin = MockProductivityPlugin()
         val notesPlugin = MockNotesPlugin()
+        val googlePlugin = com.example.jarvis.plugin.builtin.GoogleServicesPlugin()
 
         registry.register(productivityPlugin)
         registry.register(notesPlugin)
+        registry.register(googlePlugin)
 
         // 2. Load stored configurations
         loadStoredConfigs()

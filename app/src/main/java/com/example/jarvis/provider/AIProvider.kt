@@ -543,6 +543,11 @@ object LocalNeuralBrainProvider {
             lower.startsWith("delete cloud note") || lower.startsWith("remove cloud note") ->
                 ToolDecision(true, "DeleteNotesRecord", userInput, "Delete note from connected cloud notebook")
 
+            // Automation Orchestration Engine
+            lower.contains("workflow") || lower.contains("automation") || lower.contains("run automation") ||
+            lower.contains("create workflow") || lower.contains("list workflows") || lower.contains("show workflows") ->
+                ToolDecision(true, "AutomationEngine", userInput, "Automation Orchestration Engine")
+
             // Weather
             lower.contains("weather") || lower.contains("forecast") ->
                 ToolDecision(true, "Weather", userInput, "Meteorological inquiry")

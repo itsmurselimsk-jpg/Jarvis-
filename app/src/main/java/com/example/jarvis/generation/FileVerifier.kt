@@ -48,6 +48,9 @@ object FileVerifier {
             GeneratedFileFormat.MARKDOWN -> verifyMarkdown(file)
             GeneratedFileFormat.CSV -> verifyCsv(file)
             GeneratedFileFormat.JSON -> verifyJson(file)
+            GeneratedFileFormat.PDF -> verifyPdf(file)
+            GeneratedFileFormat.DOCX -> verifyDocx(file)
+            GeneratedFileFormat.XLSX -> verifyXlsx(file)
         }
     }
 
@@ -131,6 +134,76 @@ object FileVerifier {
                 details = "JSON parsing failure: ${e.message}",
                 errors = listOf("Malformed JSON syntax: ${e.message}")
             )
+        }
+    }
+
+    private fun verifyPdf(file: File): FileVerificationResult {
+        return try {
+            val bytes = file.readBytes()
+            if (bytes.size < 20) {
+                return FileVerificationResult(false, "PDF file is too small to be valid.", listOf("Size < 20 bytes."))
+            }
+            val header = String(bytes.take(8).toByteArray(), Charsets.US_ASCII)
+            if (!header.startsWith("%PDF-")) {
+                return FileVerificationResult(false, "File header does not match %PDF- signature.", listOf("Missing %PDF- magic header."))
+            }
+            val footer = String(bytes.takeLast(64).toByteArray(), Charsets.US_ASCII)
+            if (!footer.contains("%%EOF")) {
+                return FileVerificationResult(false, "PDF file lacks valid %%EOF trailer.", listOf("Missing %%EOF trailer."))
+            }
+            FileVerificationResult(true, "Valid PDF 1.4 document (${bytes.size} bytes).")
+        } catch (e: Exception) {
+            FileVerificationResult(false, "PDF verification exception: ${e.message}", listOf(e.message ?: "PDF error"))
+        }
+    }
+
+    private fun verifyDocx(file: File): FileVerificationResult {
+        return try {
+            var hasDocumentXml = false
+            FileInputStream(file).use { fis ->
+                ZipInputStream(fis).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "word/document.xml") {
+                            hasDocumentXml = true
+                            break
+                        }
+                        entry = zis.nextEntry
+                    }
+                }
+            }
+            if (hasDocumentXml) {
+                FileVerificationResult(true, "Valid Microsoft Word (.docx) package with word/document.xml (${file.length()} bytes).")
+            } else {
+                FileVerificationResult(false, "DOCX package missing word/document.xml entry.", listOf("Missing word/document.xml."))
+            }
+        } catch (e: Exception) {
+            FileVerificationResult(false, "DOCX verification exception: ${e.message}", listOf(e.message ?: "DOCX error"))
+        }
+    }
+
+    private fun verifyXlsx(file: File): FileVerificationResult {
+        return try {
+            var hasWorkbookXml = false
+            FileInputStream(file).use { fis ->
+                ZipInputStream(fis).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "xl/workbook.xml" || entry.name == "xl/worksheets/sheet1.xml") {
+                            hasWorkbookXml = true
+                            break
+                        }
+                        entry = zis.nextEntry
+                    }
+                }
+            }
+            if (hasWorkbookXml) {
+                FileVerificationResult(true, "Valid Microsoft Excel (.xlsx) package with xl/workbook.xml (${file.length()} bytes).")
+            } else {
+                FileVerificationResult(false, "XLSX package missing xl/workbook.xml entry.", listOf("Missing xl/workbook.xml."))
+            }
+        } catch (e: Exception) {
+            FileVerificationResult(false, "XLSX verification exception: ${e.message}", listOf(e.message ?: "XLSX error"))
         }
     }
 }

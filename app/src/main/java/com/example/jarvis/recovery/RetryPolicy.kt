@@ -19,6 +19,7 @@ data class RetryPolicy(
 ) {
     companion object {
         val DEFAULT = RetryPolicy()
+        val NONE = RetryPolicy(maxAttempts = 1)
         val AGGRESSIVE_FALLBACK = RetryPolicy(maxAttempts = 2, initialBackoffMs = 150L, maxBackoffMs = 1000L)
         val READ_ONLY_TOOL = RetryPolicy(maxAttempts = 2, initialBackoffMs = 200L, maxBackoffMs = 1000L)
     }

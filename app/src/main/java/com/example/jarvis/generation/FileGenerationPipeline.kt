@@ -27,7 +27,10 @@ class FileGenerationPipeline(
         GeneratedFileFormat.TXT to TxtFileGenerator(),
         GeneratedFileFormat.MARKDOWN to MarkdownFileGenerator(),
         GeneratedFileFormat.JSON to JsonFileGenerator(),
-        GeneratedFileFormat.CSV to CsvFileGenerator()
+        GeneratedFileFormat.CSV to CsvFileGenerator(),
+        GeneratedFileFormat.PDF to PdfFileGenerator(),
+        GeneratedFileFormat.DOCX to DocxFileGenerator(),
+        GeneratedFileFormat.XLSX to XlsxFileGenerator()
     )
 
     init {

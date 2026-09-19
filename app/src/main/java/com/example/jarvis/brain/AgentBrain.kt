@@ -44,8 +44,8 @@ class ToolRegistry {
 }
 
 class AgentBrain(
-    private val repository: JarvisRepository,
-    private val bridge: AndroidBridge,
+    val repository: JarvisRepository,
+    val bridge: AndroidBridge,
     private val aiProvider: AIProvider,
     private val onConfirmationRequired: (SafetyRequest) -> Unit
 ) {
@@ -72,6 +72,10 @@ class AgentBrain(
     var onSpeechCompletedCallback: (() -> Unit)? = null
 
     val pluginManager = com.example.jarvis.plugin.PluginManager(bridge.getApplicationContext(), repository)
+
+    val automationOrchestrator: com.example.jarvis.automation.AutomationOrchestrator by lazy {
+        com.example.jarvis.automation.AutomationOrchestrator(repository, bridge, this)
+    }
 
     init {
         // Register all real Android tools
@@ -108,6 +112,7 @@ class AgentBrain(
         registry.register(TranslationTool())
         registry.register(WebResearchTool())
         registry.register(DeepResearchTool())
+        registry.register(com.example.jarvis.automation.AutomationTool(automationOrchestrator))
         pluginManager.syncToolsWithBrain(this)
     }
 

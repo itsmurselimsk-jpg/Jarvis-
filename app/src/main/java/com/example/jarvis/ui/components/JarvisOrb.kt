@@ -36,6 +36,7 @@ import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisCyan
 import com.example.jarvis.ui.theme.JarvisCyanBright
 import com.example.jarvis.ui.theme.JarvisElectricBlue
+import com.example.jarvis.ui.theme.JarvisPurpleHighlight
 import com.example.jarvis.ui.theme.JarvisRed
 import kotlin.math.cos
 import kotlin.math.sin
@@ -186,18 +187,19 @@ fun JarvisOrb(
             val center = Offset(size.toPx() / 2f, size.toPx() / 2f)
             val baseRadius = size.toPx() * 0.40f * stateScale
 
-            // 1. Ambient Glow Field (Radial Gradient with smooth state alpha)
+            // 1. Ambient Glow Field (Cyan/Electric Blue with subtle Purple Highlights)
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
                         primaryColor.copy(alpha = glowAlpha * pulseBreathing),
-                        secondaryColor.copy(alpha = glowAlpha * 0.4f),
+                        secondaryColor.copy(alpha = glowAlpha * 0.5f),
+                        JarvisPurpleHighlight.copy(alpha = glowAlpha * 0.25f),
                         Color.Transparent
                     ),
                     center = center,
-                    radius = baseRadius * 1.35f
+                    radius = baseRadius * 1.45f
                 ),
-                radius = baseRadius * 1.35f,
+                radius = baseRadius * 1.45f,
                 center = center
             )
 

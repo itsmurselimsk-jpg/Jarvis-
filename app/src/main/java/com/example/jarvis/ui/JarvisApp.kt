@@ -245,7 +245,20 @@ fun JarvisApp(
                                 )
                                 SubScreen.TOOLS -> ToolsScreen(
                                     tools = viewModel.brain.registry.getAllTools(),
-                                    toolContext = viewModel.toolContext
+                                    toolContext = viewModel.toolContext,
+                                    onOpenSubScreen = { viewModel.openSubScreen(it) },
+                                    onOpenTab = { viewModel.setTab(it) }
+                                )
+                                SubScreen.FILES -> com.example.jarvis.ui.screens.FilesScreen(
+                                    onGenerateFilePrompt = { prompt ->
+                                        viewModel.sendUserMessage(prompt)
+                                        viewModel.closeSubScreen()
+                                        viewModel.setTab(com.example.jarvis.ui.components.NavTab.CHAT)
+                                    },
+                                    onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
+                                )
+                                SubScreen.AUTOMATION -> com.example.jarvis.ui.screens.AutomationScreen(
+                                    orchestrator = viewModel.brain.automationOrchestrator
                                 )
                                 SubScreen.TASKS -> TasksScreen(
                                     tasks = tasks,

@@ -84,32 +84,34 @@ class PluginAdapterTool(
 
         currentInvocationDepth++
         return try {
-            val pluginResult = if (isReadOnly) {
-                val retryResult = executeWithRetry(
-                    policy = RetryPolicy.READ_ONLY_TOOL,
-                    operationName = "PluginAction_${toolDefinition.name}",
-                    source = plugin.manifest.displayName
-                ) {
-                    val res = plugin.executeAction(toolDefinition.name, params, pluginContext)
-                    if (!res.success && res.error?.retryable == true) {
-                        throw java.io.IOException(res.error.message ?: "Retryable plugin error")
+            val pluginResult = kotlinx.coroutines.withTimeout(15000L) {
+                if (isReadOnly) {
+                    val retryResult = executeWithRetry(
+                        policy = RetryPolicy.READ_ONLY_TOOL,
+                        operationName = "PluginAction_${toolDefinition.name}",
+                        source = plugin.manifest.displayName
+                    ) {
+                        val res = plugin.executeAction(toolDefinition.name, params, pluginContext)
+                        if (!res.success && res.error?.retryable == true) {
+                            throw java.io.IOException(res.error.message ?: "Retryable plugin error")
+                        }
+                        res
                     }
-                    res
+                    retryResult.getOrElse { errorThrowable ->
+                        PluginResult(
+                            success = false,
+                            error = PluginError(
+                                code = PluginErrorCode.NETWORK_ERROR,
+                                message = errorThrowable.message ?: "Operation failed after bounded retry",
+                                retryable = false
+                            ),
+                            rawOutput = "Service call failed after retries: ${errorThrowable.message}"
+                        )
+                    }
+                } else {
+                    // Destructive / state-modifying actions (CREATE, DELETE, WRITE) are NEVER retried automatically
+                    plugin.executeAction(toolDefinition.name, params, pluginContext)
                 }
-                retryResult.getOrElse { errorThrowable ->
-                    PluginResult(
-                        success = false,
-                        error = PluginError(
-                            code = PluginErrorCode.NETWORK_ERROR,
-                            message = errorThrowable.message ?: "Operation failed after bounded retry",
-                            retryable = false
-                        ),
-                        rawOutput = "Service call failed after retries: ${errorThrowable.message}"
-                    )
-                }
-            } else {
-                // Destructive / state-modifying actions (CREATE, DELETE, WRITE) are NEVER retried automatically
-                plugin.executeAction(toolDefinition.name, params, pluginContext)
             }
 
             val elapsed = System.currentTimeMillis() - startTime
@@ -161,6 +163,17 @@ class PluginAdapterTool(
                     "executionTimeMs" to elapsed.toString(),
                     "itemsCount" to pluginResult.itemsCount.toString(),
                     "errorCode" to (pluginResult.error?.code?.name ?: "")
+                )
+            )
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            ToolResult(
+                success = false,
+                output = "Plugin execution timed out after 15,000ms. Service response was delayed.",
+                verified = false,
+                metadata = mapOf(
+                    "pluginId" to plugin.manifest.id,
+                    "toolId" to toolDefinition.toolId,
+                    "errorCode" to PluginErrorCode.TIMEOUT.name
                 )
             )
         } catch (e: CancellationException) {

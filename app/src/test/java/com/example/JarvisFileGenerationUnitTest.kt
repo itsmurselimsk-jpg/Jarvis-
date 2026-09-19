@@ -371,14 +371,112 @@ class JarvisFileGenerationUnitTest {
         assertEquals("credentials_summary.txt", sanitized)
     }
 
-    // 11. LOCAL NEURAL BRAIN TOOL DECISION ROUTING
+    // 11. PDF GENERATION & VERIFICATION
+    @Test
+    fun testPdfGenerationAndVerification() = runBlocking {
+        val request = GenerationRequest(
+            fileName = "system_report.pdf",
+            format = GeneratedFileFormat.PDF,
+            title = "JARVIS System Report",
+            sections = listOf(
+                GenerationSection(
+                    title = "Telemetry Overview",
+                    content = "System CPU nominal at 14%. Memory usage 3.2GB / 8.0GB.",
+                    items = listOf("Battery: 95%", "Network: WiFi Connected")
+                )
+            ),
+            tables = listOf(
+                GenerationTable(
+                    title = "Module Status",
+                    headers = listOf("Module", "State", "Uptime"),
+                    rows = listOf(
+                        listOf("Neural Brain", "ACTIVE", "99.9%"),
+                        listOf("File Pipeline", "ACTIVE", "100.0%")
+                    )
+                )
+            ),
+            targetDirectory = testOutputDir
+        )
+
+        val result = pipeline.generateFile(request)
+        assertTrue(result.success)
+        assertTrue(result.verified)
+        assertNotNull(result.file)
+        assertTrue(result.file!!.exists())
+        assertTrue(result.file!!.length() > 0)
+        assertEquals("application/pdf", result.mimeType)
+
+        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.PDF)
+        assertTrue(ver.isValid)
+    }
+
+    // 12. DOCX GENERATION & VERIFICATION
+    @Test
+    fun testDocxGenerationAndVerification() = runBlocking {
+        val request = GenerationRequest(
+            fileName = "executive_briefing.docx",
+            format = GeneratedFileFormat.DOCX,
+            title = "Executive Briefing",
+            sections = listOf(
+                GenerationSection(
+                    title = "Key Takeaways",
+                    content = "JARVIS core operations are operating at full capacity.",
+                    items = listOf("Zero unhandled exceptions", "100% verified output files")
+                )
+            ),
+            targetDirectory = testOutputDir
+        )
+
+        val result = pipeline.generateFile(request)
+        assertTrue(result.success)
+        assertTrue(result.verified)
+        assertNotNull(result.file)
+        assertTrue(result.file!!.exists())
+        assertTrue(result.file!!.length() > 0)
+
+        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.DOCX)
+        assertTrue(ver.isValid)
+    }
+
+    // 13. XLSX GENERATION & VERIFICATION
+    @Test
+    fun testXlsxGenerationAndVerification() = runBlocking {
+        val request = GenerationRequest(
+            fileName = "sensor_data.xlsx",
+            format = GeneratedFileFormat.XLSX,
+            tables = listOf(
+                GenerationTable(
+                    title = "Sensor Logs",
+                    headers = listOf("Metric", "Value", "Unit"),
+                    rows = listOf(
+                        listOf("Battery", "95", "%"),
+                        listOf("Temperature", "34.5", "C")
+                    )
+                )
+            ),
+            targetDirectory = testOutputDir
+        )
+
+        val result = pipeline.generateFile(request)
+        assertTrue(result.success)
+        assertTrue(result.verified)
+        assertNotNull(result.file)
+        assertTrue(result.file!!.exists())
+        assertTrue(result.file!!.length() > 0)
+
+        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.XLSX)
+        assertTrue(ver.isValid)
+    }
+
+    // 14. LOCAL NEURAL BRAIN TOOL DECISION ROUTING
     @Test
     fun testLocalBrainToolDecisionRouting() {
         val queries = listOf(
             "save as csv called data.csv" to "FileGeneration",
             "create a markdown file named readme.md" to "FileGeneration",
             "save as txt called log.txt" to "FileGeneration",
-            "generate a json file with telemetry" to "FileGeneration"
+            "generate a json file with telemetry" to "FileGeneration",
+            "generate a pdf report called summary.pdf" to "FileGeneration"
         )
 
         for ((query, expectedTool) in queries) {

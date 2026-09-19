@@ -2,9 +2,11 @@ package com.example.jarvis.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,11 +14,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -33,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +57,9 @@ import androidx.compose.ui.unit.sp
 import com.example.jarvis.brain.Tool
 import com.example.jarvis.brain.ToolContext
 import com.example.jarvis.model.RiskLevel
+import com.example.jarvis.ui.JarvisViewModel
+import com.example.jarvis.ui.SubScreen
+import com.example.jarvis.ui.components.NavTab
 import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorder
@@ -54,50 +73,118 @@ import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
 import kotlinx.coroutines.launch
 
+data class ToolCategoryNav(
+    val title: String,
+    val icon: ImageVector,
+    val action: () -> Unit
+)
+
 @Composable
 fun ToolsScreen(
     tools: List<Tool>,
-    toolContext: ToolContext
+    toolContext: ToolContext,
+    onOpenSubScreen: (SubScreen) -> Unit = {},
+    onOpenTab: (NavTab) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    Column(
+    val subNavItems = listOf(
+        ToolCategoryNav("Chat", Icons.Default.ChatBubble) { onOpenTab(NavTab.CHAT) },
+        ToolCategoryNav("Voice", Icons.Default.GraphicEq) { onOpenTab(NavTab.VOICE) },
+        ToolCategoryNav("Memory", Icons.Default.Psychology) { onOpenSubScreen(SubScreen.MEMORY) },
+        ToolCategoryNav("Research", Icons.Default.Search) { onOpenSubScreen(SubScreen.SEARCH) },
+        ToolCategoryNav("Files", Icons.Default.Folder) { onOpenSubScreen(SubScreen.FILES) },
+        ToolCategoryNav("Automation", Icons.Default.AutoMode) { onOpenSubScreen(SubScreen.AUTOMATION) },
+        ToolCategoryNav("Plugins", Icons.Default.Extension) { onOpenSubScreen(SubScreen.PLUGINS) },
+        ToolCategoryNav("Privacy", Icons.Default.Shield) { onOpenSubScreen(SubScreen.PRIVACY) },
+        ToolCategoryNav("Settings", Icons.Default.Settings) { onOpenTab(NavTab.SETTINGS) }
+    )
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(JarvisBackground)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .background(JarvisBackground),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "TOOL CENTER & EXECUTOR MATRIX",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            letterSpacing = 1.sp,
-            color = JarvisCyan
-        )
-        Text(
-            text = "${tools.size} registered executive capabilities",
-            fontSize = 11.sp,
-            color = JarvisTextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(tools, key = { it.name }) { tool ->
-                ToolCard(
-                    tool = tool,
-                    onExecute = { input, onResult ->
-                        coroutineScope.launch {
-                            val res = tool.execute(input, toolContext)
-                            onResult(res.output)
-                        }
-                    }
+        // 1. Header & Title
+        item {
+            Column {
+                Text(
+                    text = "TOOL CENTER & EXECUTOR MATRIX",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.2.sp,
+                    color = JarvisCyanBright
+                )
+                Text(
+                    text = "${tools.size} registered executive capabilities across system & AI domains",
+                    fontSize = 11.sp,
+                    color = JarvisTextSecondary
                 )
             }
+        }
+
+        // 2. Hub Quick Access Row
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "SYSTEM ACCESS HUB",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = JarvisCyan
+                )
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(subNavItems) { item ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xEE0D162A))
+                                .border(1.dp, JarvisBorderSubtle, RoundedCornerShape(12.dp))
+                                .clickable { item.action() }
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.title,
+                                    tint = JarvisCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = item.title,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = JarvisTextPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Registered Tool Capability Cards
+        items(tools, key = { it.name }) { tool ->
+            ToolCard(
+                tool = tool,
+                onExecute = { input, onResult ->
+                    coroutineScope.launch {
+                        val res = tool.execute(input, toolContext)
+                        onResult(res.output)
+                    }
+                }
+            )
         }
     }
 }
@@ -107,94 +194,104 @@ private fun ToolCard(
     tool: Tool,
     onExecute: (String, (String) -> Unit) -> Unit
 ) {
-    var inputVal by remember { mutableStateOf("") }
-    var executionOutput by remember { mutableStateOf<String?>(null) }
+    var input by remember { mutableStateOf("") }
+    var outputResult by remember { mutableStateOf<String?>(null) }
     var isRunning by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF090E1A))
-            .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xEE0B1222))
+            .border(1.dp, JarvisBorderSubtle, RoundedCornerShape(14.dp))
             .padding(14.dp)
     ) {
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = tool.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    color = JarvisTextPrimary
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(JarvisCyan.copy(alpha = 0.15f))
+                            .border(1.dp, JarvisCyan.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = tool.name,
+                            tint = JarvisCyanBright,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                // Risk Level Badge
+                    Column {
+                        Text(
+                            text = tool.name,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = JarvisTextPrimary
+                        )
+                        Text(
+                            text = tool.description,
+                            fontSize = 11.sp,
+                            color = JarvisTextSecondary
+                        )
+                    }
+                }
+
+                // Risk pill
+                val (riskColor, riskText) = when (tool.riskLevel) {
+                    RiskLevel.SAFE -> JarvisGreen to "SAFE"
+                    RiskLevel.CONFIRMATION -> JarvisAmber to "CONFIRM"
+                    RiskLevel.RESTRICTED -> JarvisRed to "RESTRICTED"
+                }
+
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(
-                            when (tool.riskLevel) {
-                                RiskLevel.SAFE -> JarvisGreen.copy(alpha = 0.2f)
-                                RiskLevel.CONFIRMATION -> JarvisAmber.copy(alpha = 0.2f)
-                                RiskLevel.RESTRICTED -> JarvisRed.copy(alpha = 0.2f)
-                            }
-                        )
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(riskColor.copy(alpha = 0.15f))
+                        .border(0.5.dp, riskColor, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = tool.riskLevel.name,
+                        text = riskText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = when (tool.riskLevel) {
-                            RiskLevel.SAFE -> JarvisGreen
-                            RiskLevel.CONFIRMATION -> JarvisAmber
-                            RiskLevel.RESTRICTED -> JarvisRed
-                        }
+                        color = riskColor
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = tool.description,
-                fontSize = 12.sp,
-                color = JarvisTextSecondary
-            )
-
-            if (tool.permissions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Permissions: ${tool.permissions.joinToString(", ")}",
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = JarvisTextDim
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Test input & execute
+            // Execution Input Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
-                    value = inputVal,
-                    onValueChange = { inputVal = it },
-                    placeholder = { Text("Sample parameter...", fontSize = 11.sp, color = JarvisTextDim) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
+                    value = input,
+                    onValueChange = { input = it },
+                    placeholder = {
+                        Text("Parameter input...", fontSize = 11.sp, color = JarvisTextDim)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("tool_input_${tool.name}"),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = JarvisCyan,
-                        unfocusedBorderColor = JarvisBorder,
+                        unfocusedBorderColor = JarvisBorderSubtle,
+                        focusedContainerColor = Color(0xFF070B14),
+                        unfocusedContainerColor = Color(0xFF070B14),
                         focusedTextColor = JarvisTextPrimary,
                         unfocusedTextColor = JarvisTextPrimary
                     ),
@@ -204,37 +301,40 @@ private fun ToolCard(
                 Button(
                     onClick = {
                         isRunning = true
-                        onExecute(inputVal.ifBlank { "test" }) { result ->
-                            executionOutput = result
+                        onExecute(input) { result ->
+                            outputResult = result
                             isRunning = false
                         }
                     },
+                    enabled = !isRunning,
+                    colors = ButtonDefaults.buttonColors(containerColor = JarvisCyan),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = JarvisCyan, contentColor = Color.Black),
-                    modifier = Modifier.testTag("execute_${tool.name.lowercase()}")
+                    modifier = Modifier.testTag("tool_exec_${tool.name}")
                 ) {
-                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text("RUN", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Execute",
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
 
-            // Output preview
-            executionOutput?.let { output ->
-                Spacer(modifier = Modifier.height(8.dp))
+            // Execution Output
+            outputResult?.let { out ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF030712))
-                        .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(6.dp))
-                        .padding(8.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF050811))
+                        .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(8.dp))
+                        .padding(10.dp)
                 ) {
                     Text(
-                        text = output,
+                        text = out,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = JarvisCyanBright,
-                        lineHeight = 15.sp
+                        color = JarvisCyanBright
                     )
                 }
             }
