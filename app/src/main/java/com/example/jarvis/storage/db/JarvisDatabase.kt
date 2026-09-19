@@ -203,7 +203,7 @@ abstract class JarvisDatabase : RoomDatabase() {
                     context.applicationContext,
                     JarvisDatabase::class.java,
                     "jarvis_operating_system.db"
-                ).fallbackToDestructiveMigration().build()
+                ).fallbackToDestructiveMigration(dropAllTables = true).build()
                 INSTANCE = instance
                 instance
             }

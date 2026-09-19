@@ -53,6 +53,7 @@ class JarvisOverlayHud(private val context: Context) {
                         WindowManager.LayoutParams.TYPE_PHONE
                     }
 
+                    @Suppress("DEPRECATION")
                     val params = WindowManager.LayoutParams(
                         WindowManager.LayoutParams.WRAP_CONTENT,
                         WindowManager.LayoutParams.WRAP_CONTENT,

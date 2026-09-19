@@ -160,8 +160,8 @@ object LanguageDetector {
 
     fun getLocaleForLanguage(language: DetectedLanguage): Locale {
         return when (language) {
-            DetectedLanguage.BENGALI -> Locale("bn", "BD")
-            DetectedLanguage.HINDI -> Locale("hi", "IN")
+            DetectedLanguage.BENGALI -> Locale.forLanguageTag("bn-BD")
+            DetectedLanguage.HINDI -> Locale.forLanguageTag("hi-IN")
             DetectedLanguage.ENGLISH -> Locale.US
         }
     }

@@ -122,13 +122,12 @@ object AdvancedFileAnalyzer {
         // 4. Format-specific deep inspection
         when (detectedType) {
             DocumentType.CSV -> {
-                tabularAnalysis = analyzeCsv(document, warnings)
-                if (tabularAnalysis != null) {
-                    statistics["rowCount"] = tabularAnalysis.rowCount
-                    statistics["columnCount"] = tabularAnalysis.columnCount
-                    statistics["missingValues"] = tabularAnalysis.totalMissingValues
-                    statistics["duplicateRows"] = tabularAnalysis.duplicateRowCount
-                }
+                val csvResult = analyzeCsv(document, warnings)
+                tabularAnalysis = csvResult
+                statistics["rowCount"] = csvResult.rowCount
+                statistics["columnCount"] = csvResult.columnCount
+                statistics["missingValues"] = csvResult.totalMissingValues
+                statistics["duplicateRows"] = csvResult.duplicateRowCount
             }
             DocumentType.JSON -> {
                 structuredAnalysis = analyzeJson(document.rawContent ?: text, warnings, errors)

@@ -124,28 +124,28 @@ enum class SupportedLanguage(
         code = "bn",
         displayName = "Bengali",
         nativeName = "বাংলা",
-        locale = Locale("bn", "BD"),
+        locale = Locale.forLanguageTag("bn-BD"),
         greetingPhrase = "হ্যাঁ স্যার, আমি শুনছি। কীভাবে সাহায্য করতে পারি?"
     ),
     HINDI(
         code = "hi",
         displayName = "Hindi",
         nativeName = "हिंदी",
-        locale = Locale("hi", "IN"),
+        locale = Locale.forLanguageTag("hi-IN"),
         greetingPhrase = "हाँ सर, मैं सुन रहा हूँ। मैं आपकी क्या मदद कर सकता हूँ?"
     ),
     HINGLISH(
         code = "hi-Latn",
         displayName = "Hinglish",
         nativeName = "Hinglish (Roman Script)",
-        locale = Locale("hi", "IN"),
+        locale = Locale.forLanguageTag("hi-IN"),
         greetingPhrase = "Haan Sir, main sun raha hoon. How can I help you?"
     ),
     BANGLISH(
         code = "bn-Latn",
         displayName = "Banglish",
         nativeName = "Banglish (Roman Script)",
-        locale = Locale("bn", "BD"),
+        locale = Locale.forLanguageTag("bn-BD"),
         greetingPhrase = "Hae Sir, ami shunchi. Kibaabe help korte pari?"
     );
 

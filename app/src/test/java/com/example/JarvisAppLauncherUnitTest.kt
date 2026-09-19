@@ -36,6 +36,7 @@ class JarvisAppLauncherUnitTest {
         bridge = AndroidBridge(context)
     }
 
+    @Suppress("DEPRECATION")
     private fun registerApp(packageName: String, label: String, className: String = "$packageName.MainActivity") {
         val shadowPm = Shadows.shadowOf(pm)
         val resolveInfo = ResolveInfo().apply {
