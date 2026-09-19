@@ -78,7 +78,11 @@ class JarvisRepository(private val context: Context) {
         val encryptedKey = prefs.getString("encrypted_custom_api_key", "") ?: ""
         val decryptedKey = if (encryptedKey.isNotEmpty()) EncryptedStorage.decrypt(encryptedKey) else ""
         val endpoint = prefs.getString("custom_endpoint", "https://api.openai.com/v1") ?: ""
-        val model = prefs.getString("selected_model", "gemini-3.5-flash") ?: "gemini-3.5-flash"
+        var model = prefs.getString("selected_model", "gemini-2.5-flash") ?: "gemini-2.5-flash"
+        if (model == "gemini-3.5-flash") {
+            model = "gemini-2.5-flash"
+            prefs.edit().putString("selected_model", "gemini-2.5-flash").apply()
+        }
         val autoSpeak = prefs.getBoolean("auto_speak", true)
         val speechRate = prefs.getFloat("speech_rate", 1.0f)
         val speechPitch = prefs.getFloat("speech_pitch", 1.0f)

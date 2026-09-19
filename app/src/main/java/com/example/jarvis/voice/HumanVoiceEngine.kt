@@ -149,10 +149,10 @@ object HumanVoiceEngine {
         onDone: () -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val model = "gemini-2.5-flash-preview-tts"
+            val model = "gemini-2.0-flash"
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
-            val prompt = "Speak naturally and expressively as J.A.R.V.I.S., an intelligent, refined, polite personal assistant with realistic human cadence, tone, and inflection: $text"
+            val prompt = "Speak naturally as J.A.R.V.I.S., a helpful, intelligent personal AI assistant: $text"
 
             val rootJson = JSONObject()
             val contentsArray = JSONArray()

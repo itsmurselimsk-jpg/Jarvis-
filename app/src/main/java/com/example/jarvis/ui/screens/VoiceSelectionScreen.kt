@@ -450,7 +450,14 @@ fun VoiceSelectionScreen(
                         RoundedCornerShape(12.dp)
                     )
                     .clickable {
-                        onUpdateSettings(currentSettings.copy(voiceProfileName = profile.profileName))
+                        onUpdateSettings(
+                            currentSettings.copy(
+                                voiceProfileName = profile.profileName,
+                                speechPitch = profile.defaultPitch,
+                                speechRate = profile.defaultSpeed,
+                                geminiVoiceName = profile.geminiVoiceName
+                            )
+                        )
                     }
                     .padding(14.dp)
             ) {
@@ -524,6 +531,14 @@ fun VoiceSelectionScreen(
 
                         Button(
                             onClick = {
+                                onUpdateSettings(
+                                    currentSettings.copy(
+                                        voiceProfileName = profile.profileName,
+                                        speechPitch = profile.defaultPitch,
+                                        speechRate = profile.defaultSpeed,
+                                        geminiVoiceName = profile.geminiVoiceName
+                                    )
+                                )
                                 val testPhrase = when (SupportedLanguage.fromCode(currentSettings.languageCode)) {
                                     SupportedLanguage.BENGALI -> "আমি জারভিস। সব সিস্টেম স্বাভাবিক এবং কার্যকর।"
                                     SupportedLanguage.HINDI -> "नमस्ते सर, मैं जार्विस हूँ। सभी सिस्टम सामान्य और चालू हैं।"
@@ -532,8 +547,8 @@ fun VoiceSelectionScreen(
                                 }
                                 onTestSpeak(
                                     testPhrase,
-                                    profile.defaultSpeed * currentSettings.speechRate,
-                                    profile.defaultPitch * currentSettings.speechPitch
+                                    profile.defaultSpeed,
+                                    profile.defaultPitch
                                 )
                             },
                             shape = RoundedCornerShape(6.dp),

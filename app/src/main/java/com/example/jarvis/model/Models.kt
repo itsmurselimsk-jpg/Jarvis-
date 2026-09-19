@@ -146,7 +146,7 @@ data class ProviderSettings(
     val providerType: AIProviderType = AIProviderType.GEMINI,
     val customApiKey: String = "",
     val customEndpoint: String = "https://api.openai.com/v1",
-    val selectedModel: String = "gemini-3.5-flash",
+    val selectedModel: String = "gemini-2.5-flash",
     val systemPrompt: String = "You are JARVIS, an ultra-intelligent, deeply understanding AI assistant combining the conversational depth, eloquence, and reasoning power of ChatGPT with Tony Stark's futuristic personal OS. You are fluent in English, Hindi, Hinglish, and Bengali. Understand user questions with high empathy and analytical depth. When asked questions, provide clear, comprehensive, well-structured, and helpful answers with code, steps, or explanations just like ChatGPT. Adapt naturally to the user's language and tone.",
     val temperature: Float = 0.7f,
     val autoSpeakResponses: Boolean = true,

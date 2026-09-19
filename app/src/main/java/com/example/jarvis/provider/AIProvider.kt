@@ -65,7 +65,11 @@ class GeminiAIProvider(
             return@withContext LocalNeuralBrainProvider.generateLocalResponse(prompt, onChunkReceived)
         }
 
-        val model = "gemini-3.5-flash"
+        val model = if (settings.selectedModel.isNotBlank() && settings.selectedModel != "gemini-3.5-flash") {
+            settings.selectedModel
+        } else {
+            "gemini-2.5-flash"
+        }
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey"
 
         val rootJson = JSONObject()
@@ -138,7 +142,7 @@ class GeminiAIProvider(
                 }
             """.trimIndent()
 
-            val model = "gemini-3.5-flash"
+            val model = "gemini-2.5-flash"
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey"
 
             val rootJson = JSONObject()
@@ -184,7 +188,7 @@ class GeminiAIProvider(
         }
 
         try {
-            val model = "gemini-3.5-flash"
+            val model = "gemini-2.5-flash"
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey"
 
             val stream = ByteArrayOutputStream()

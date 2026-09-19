@@ -21,8 +21,11 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.StatFs
+import android.util.Log
 import android.provider.CalendarContract
 import android.provider.ContactsContract
 import android.provider.Settings
@@ -80,6 +83,7 @@ class AndroidBridge(private val context: Context) {
 
     private var onSpeechResultCallback: ((String) -> Unit)? = null
     private var onUtteranceDoneCallback: ((String?) -> Unit)? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var torchCallback: CameraManager.TorchCallback? = null
 
     init {
@@ -92,7 +96,13 @@ class AndroidBridge(private val context: Context) {
     private fun initTts() {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech?.language = Locale.UK
+                var langRes = textToSpeech?.setLanguage(Locale.UK)
+                if (langRes == TextToSpeech.LANG_MISSING_DATA || langRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    langRes = textToSpeech?.setLanguage(Locale.US)
+                    if (langRes == TextToSpeech.LANG_MISSING_DATA || langRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        textToSpeech?.setLanguage(Locale.getDefault())
+                    }
+                }
                 isTtsReady = true
                 try {
                     selectBestNeuralVoice(Locale.UK, preferMale = true)
@@ -205,25 +215,36 @@ class AndroidBridge(private val context: Context) {
         }
         onSpeechResultCallback = onResult
         _liveTranscript.value = ""
-        try {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toString())
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+
+        mainHandler.post {
+            try {
+                if (speechRecognizer == null && SpeechRecognizer.isRecognitionAvailable(context)) {
+                    initSpeechRecognizer()
+                }
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                speechRecognizer?.startListening(intent)
+                _isListening.value = true
+            } catch (e: Exception) {
+                Log.w("AndroidBridge", "startListening failed: ${e.message}")
+                _isListening.value = false
             }
-            speechRecognizer?.startListening(intent)
-            _isListening.value = true
-        } catch (_: Exception) {
-            _isListening.value = false
         }
     }
 
     fun stopListening() {
-        try {
-            speechRecognizer?.stopListening()
-        } catch (_: Exception) {}
-        _isListening.value = false
+        mainHandler.post {
+            try {
+                speechRecognizer?.stopListening()
+                speechRecognizer?.cancel()
+            } catch (_: Exception) {}
+            _isListening.value = false
+        }
     }
 
     fun setUtteranceDoneListener(listener: ((String?) -> Unit)?) {
@@ -302,19 +323,34 @@ class AndroidBridge(private val context: Context) {
         voiceProfile: com.example.jarvis.voice.VoiceProfileType? = null,
         onDone: (() -> Unit)? = null
     ) {
-        if (!isTtsReady || sanitizedText.isBlank() || !_isSpeakerEnabled.value) {
+        if (sanitizedText.isBlank() || !_isSpeakerEnabled.value) {
             onDone?.invoke()
             return
         }
+
+        if (textToSpeech == null || !isTtsReady) {
+            initTts()
+            mainHandler.postDelayed({
+                speakDeviceNeural(sanitizedText, speechRate, pitch, locale, voiceProfile, onDone)
+            }, 350)
+            return
+        }
+
         requestAudioFocus()
         val targetLocale = locale ?: (voiceProfile?.preferredLocaleTag?.let { Locale.forLanguageTag(it) } ?: Locale.UK)
         try {
-            textToSpeech?.language = targetLocale
+            var langRes = textToSpeech?.setLanguage(targetLocale)
+            if (langRes == TextToSpeech.LANG_MISSING_DATA || langRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                langRes = textToSpeech?.setLanguage(Locale.US)
+                if (langRes == TextToSpeech.LANG_MISSING_DATA || langRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    textToSpeech?.setLanguage(Locale.getDefault())
+                }
+            }
             selectBestNeuralVoice(targetLocale, preferMale = voiceProfile != com.example.jarvis.voice.VoiceProfileType.FRIDAY)
         } catch (_: Exception) {}
 
-        textToSpeech?.setSpeechRate(speechRate)
-        textToSpeech?.setPitch(pitch)
+        textToSpeech?.setSpeechRate(speechRate.coerceIn(0.5f, 2.0f))
+        textToSpeech?.setPitch(pitch.coerceIn(0.5f, 2.0f))
         val utteranceId = "JARVIS_${System.currentTimeMillis()}"
         if (onDone != null) {
             val previousDone = onUtteranceDoneCallback
@@ -326,9 +362,15 @@ class AndroidBridge(private val context: Context) {
                 }
             }
         }
+        _isSpeaking.value = true
         val params = Bundle()
         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-        textToSpeech?.speak(sanitizedText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        val result = textToSpeech?.speak(sanitizedText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        if (result != TextToSpeech.SUCCESS) {
+            _isSpeaking.value = false
+            abandonAudioFocus()
+            onDone?.invoke()
+        }
     }
 
     /**

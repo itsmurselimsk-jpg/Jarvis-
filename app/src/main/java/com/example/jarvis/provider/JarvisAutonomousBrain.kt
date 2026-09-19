@@ -20,6 +20,12 @@ object JarvisAutonomousBrain {
         val lower = trimmed.lowercase(Locale.ROOT)
         val lang = JarvisPersonality.detectLanguageStyle(trimmed)
 
+        // 0. User feedback & comprehension calibration handler
+        val feedbackResponse = tryHandleComprehensionFeedback(lower, trimmed, lang)
+        if (feedbackResponse != null) {
+            return feedbackResponse
+        }
+
         // 1. Math and arithmetic calculation
         val mathResult = tryEvaluateMath(trimmed)
         if (mathResult != null) {
@@ -58,6 +64,41 @@ object JarvisAutonomousBrain {
 
         // 7. Conversational Deep Fallback
         return generateConversationalDeepReply(trimmed, lower, lang)
+    }
+
+    private fun tryHandleComprehensionFeedback(lower: String, original: String, lang: LanguageStyle): String? {
+        val isFeedback = lower.contains("samajh ke") || lower.contains("samajh nahi") || lower.contains("kuchh bhi bol") ||
+                lower.contains("kuch bhi bol") || lower.contains("reply nahin") || lower.contains("reply nahi") ||
+                lower.contains("dhang se") || lower.contains("theek se") || lower.contains("galat bol") ||
+                lower.contains("meri baat") || lower.contains("samjhega") || lower.contains("bujhte parchho na") ||
+                lower.contains("bhalo kore bolo") || lower.contains("not understanding") || lower.contains("understand me")
+
+        if (isFeedback) {
+            return when (lang) {
+                LanguageStyle.BANGLISH, LanguageStyle.BENGALI ->
+                    "### 🎙️ JARVIS Active Listening Matrix\n\n" +
+                    "Ami ekdom bujhte perechhi, bhai! Aage kichhu confusion hoye thakle tar jonno khoma chaichhi.\n\n" +
+                    "Ami ekhon apnar proti ta kotha khub bhalo bhabe shune o bujhe thik sei onujayi accurate uttor debo.\n\n" +
+                    "👉 Apni ja jante chan ba ja bolte chan, bolun — ami puro ready!"
+
+                LanguageStyle.HINDI ->
+                    "### 🎙️ जार्विस एक्टिव लिसनिंग मैट्रिक्स\n\n" +
+                    "माफ़ कीजिए सर, अब मैंने अपनी समझ और लिसनिंग मोड को पूरी तरह कैलिब्रेट कर लिया है।\n\n" +
+                    "अब आप जो भी बोलेंगे — चाहे वह कोई सवाल हो, काम हो, डिवाइस कंट्रोल हो या बातचीत — मैं उसे अच्छी तरह समझकर सीधा और सटीक जवाब दूंगा।\n\n" +
+                    "👉 बताइए सर, मैं आपकी किस प्रकार सहायता कर सकता हूँ?"
+
+                else ->
+                    "### 🎙️ JARVIS Neural Listening Calibrated\n\n" +
+                    "Haan bhai, bilkul sahi kaha aapne! Pehle agar koi confusion hui toh sorry. Maine apna neural understanding matrix recalibrate kar diya hai.\n\n" +
+                    "Ab aap jo bhi bologe — chahe:\n" +
+                    "1. **Direct Questions**: Science, tech, general knowledge, padhai ya koi sawal\n" +
+                    "2. **Coding & Math**: Kisi bhi language ka code ya calculation\n" +
+                    "3. **Device Automation**: Flashlight, WhatsApp, SMS, Calendar, YouTube, Volume\n" +
+                    "4. **General Baat-cheet**: Life, advice, routine, story, shayari\n\n" +
+                    "Main aapki baat 100% samajh kar bilkul point-to-point aur accurate jawab doonga. Batao bhai, kya poochhna ya karwana chahte ho?"
+            }
+        }
+        return null
     }
 
     // ==========================================

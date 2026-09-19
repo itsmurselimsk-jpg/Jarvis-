@@ -44,6 +44,7 @@ class ContinuousWakeEngine(
     private var speechRecognizer: SpeechRecognizer? = null
     private var isDestroyed = false
     private var restartRunnable: Runnable? = null
+    private var consecutiveSilences = 0
 
     fun startMonitoring() {
         isDestroyed = false
@@ -159,16 +160,24 @@ class ContinuousWakeEngine(
             override fun onError(error: Int) {
                 _isMicrophoneActive.value = false
                 Log.d(TAG, "RecognitionListener onError code: $error")
-                // Errors like NO_MATCH or SPEECH_TIMEOUT are normal during background passive monitoring
+                consecutiveSilences++
+
                 val delay = when (error) {
-                    SpeechRecognizer.ERROR_NO_MATCH -> 200L
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
-                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_NETWORK -> 2000L
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 5000L
-                    else -> 800L
+                    SpeechRecognizer.ERROR_NO_MATCH,
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                        if (consecutiveSilences > 3) 2500L else 1200L
+                    }
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                    SpeechRecognizer.ERROR_AUDIO -> 3500L
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                    SpeechRecognizer.ERROR_NETWORK -> 4000L
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 8000L
+                    else -> 2000L
                 }
 
-                if (_engineState.value == EngineState.ACTIVE_COMMAND_LISTENING && (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || error == SpeechRecognizer.ERROR_NO_MATCH)) {
+                if (_engineState.value == EngineState.ACTIVE_COMMAND_LISTENING &&
+                    (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || error == SpeechRecognizer.ERROR_NO_MATCH)
+                ) {
                     // Revert to passive monitoring on silence timeout
                     _engineState.value = EngineState.PASSIVE_WAKE_MONITORING
                 }
@@ -178,13 +187,14 @@ class ContinuousWakeEngine(
 
             override fun onResults(results: Bundle?) {
                 _isMicrophoneActive.value = false
+                consecutiveSilences = 0
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION) ?: emptyList()
                 val topMatch = matches.firstOrNull()?.trim() ?: ""
 
                 if (topMatch.isNotBlank()) {
                     handleRecognizedText(topMatch)
                 } else {
-                    scheduleRestart(300L)
+                    scheduleRestart(1200L)
                 }
             }
 
@@ -220,7 +230,7 @@ class ContinuousWakeEngine(
                 if (wakeCheck.isWakeWordPresent) {
                     onWakeWordDetected(wakeCheck)
                 } else {
-                    scheduleRestart(300L)
+                    scheduleRestart(1200L)
                 }
             }
 

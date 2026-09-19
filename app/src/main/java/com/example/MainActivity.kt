@@ -16,9 +16,9 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
 
-    // Initialize background voice wake service if permitted
+    // Initialize background voice wake service if explicitly enabled by user
     val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
-    val wakeEnabled = prefs.getBoolean("continuous_wake_enabled", true)
+    val wakeEnabled = prefs.getBoolean("continuous_wake_enabled", false)
     if (wakeEnabled && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
       JarvisVoiceService.start(this)
     }
