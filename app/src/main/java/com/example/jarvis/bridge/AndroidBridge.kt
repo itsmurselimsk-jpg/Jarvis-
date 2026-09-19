@@ -531,11 +531,12 @@ class AndroidBridge(private val context: Context) {
 
     // BLUETOOTH TELEMETRY
     fun getBluetoothStatus(): Map<String, Any> {
-        val adapter = BluetoothAdapter.getDefaultAdapter()
+        val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
+        val adapter = bm?.adapter
         val isSupported = adapter != null
         val isEnabled = adapter?.isEnabled ?: false
-        val name = adapter?.name ?: "Local Bluetooth"
-        val bondedCount = adapter?.bondedDevices?.size ?: 0
+        val name = try { adapter?.name ?: "Local Bluetooth" } catch (_: SecurityException) { "Local Bluetooth" }
+        val bondedCount = try { adapter?.bondedDevices?.size ?: 0 } catch (_: SecurityException) { 0 }
 
         return mapOf(
             "isSupported" to isSupported,
@@ -581,6 +582,9 @@ class AndroidBridge(private val context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
                 vm?.defaultVibrator?.vibrate(android.os.VibrationEffect.createOneShot(durationMs, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val v = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                v?.vibrate(android.os.VibrationEffect.createOneShot(durationMs, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
                 val v = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator

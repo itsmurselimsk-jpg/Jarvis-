@@ -29,10 +29,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
@@ -735,7 +735,7 @@ fun SearchResultCard(
                     .testTag("action_btn_${result.id}")
             ) {
                 val actionIcon = when (result.actionType) {
-                    SearchActionType.OPEN_APP -> Icons.Default.Launch
+                    SearchActionType.OPEN_APP -> Icons.AutoMirrored.Filled.Launch
                     SearchActionType.CALL_CONTACT -> Icons.Default.Call
                     else -> Icons.Default.Visibility
                 }

@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
@@ -29,8 +31,6 @@ import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -191,7 +191,7 @@ fun VoiceScreen(
                         .testTag("toggle_speaker_button")
                 ) {
                     Icon(
-                        imageVector = if (!isSpeakerEnabled) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                        imageVector = if (!isSpeakerEnabled) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = "Toggle Speaker",
                         tint = if (!isSpeakerEnabled) JarvisRed else JarvisCyan,
                         modifier = Modifier.size(18.dp)
@@ -464,7 +464,7 @@ fun VoiceScreen(
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
-                                imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.VolumeUp,
+                                imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = "Playback",
                                 tint = JarvisCyan,
                                 modifier = Modifier.size(18.dp)

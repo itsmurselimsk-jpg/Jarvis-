@@ -23,6 +23,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BatteryFull
@@ -35,13 +38,10 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.FlashlightOn
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Speed
@@ -435,7 +435,7 @@ fun HomeScreen(
                             .testTag("home_quick_send_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Send",
                             tint = Color.Black,
                             modifier = Modifier.size(20.dp)
@@ -515,11 +515,20 @@ fun HomeScreen(
                     }
                 }
 
-                // 4 Protocol Cards in scrolling Row
+                // Protocol Cards in scrolling Row
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.Bolt,
+                            title = "Protocol Zero",
+                            desc = "Supreme Omni-OS sync & maximum yield",
+                            accentColor = JarvisCyanBright,
+                            onClick = { onQuickCommand("JARVIS, protocol zero") }
+                        )
+                    }
                     item {
                         StarkProtocolCard(
                             icon = Icons.Default.WbSunny,
@@ -527,6 +536,15 @@ fun HomeScreen(
                             desc = "Full audio briefing, telemetry & agenda",
                             accentColor = Color(0xFFFFD700),
                             onClick = { onQuickCommand("JARVIS, morning protocol") }
+                        )
+                    }
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.Adjust,
+                            title = "Focus Matrix",
+                            desc = "25m pomodoro lock & distraction filter",
+                            accentColor = JarvisPurpleHighlight,
+                            onClick = { onQuickCommand("JARVIS, focus mode") }
                         )
                     }
                     item {
@@ -549,11 +567,20 @@ fun HomeScreen(
                     }
                     item {
                         StarkProtocolCard(
-                            icon = Icons.Default.Bolt,
-                            title = "Power Surge",
-                            desc = "Reactor core overclock to 100%",
-                            accentColor = Color(0xFF00E5FF),
-                            onClick = { onQuickCommand("JARVIS, power surge") }
+                            icon = Icons.Default.Speed,
+                            title = "Titan Diagnostics",
+                            desc = "Full CPU, RAM, battery & uplink health",
+                            accentColor = JarvisElectricBlue,
+                            onClick = { onQuickCommand("JARVIS, diagnostic scan") }
+                        )
+                    }
+                    item {
+                        StarkProtocolCard(
+                            icon = Icons.Default.FlashlightOn,
+                            title = "Emergency SOS",
+                            desc = "Tactical strobe beacon & SOS alert",
+                            accentColor = JarvisRed,
+                            onClick = { onQuickCommand("JARVIS, emergency beacon") }
                         )
                     }
                 }
@@ -582,7 +609,7 @@ fun HomeScreen(
                     CyberActionCard(
                         title = "WhatsApp",
                         subtitle = "Voice & text message dispatch",
-                        icon = Icons.Default.Chat,
+                        icon = Icons.AutoMirrored.Filled.Chat,
                         accentColor = Color(0xFF25D366),
                         modifier = Modifier.weight(1f),
                         onClick = { onQuickCommand("Send whatsapp message") }
@@ -605,7 +632,7 @@ fun HomeScreen(
                     CyberActionCard(
                         title = "SMS Direct",
                         subtitle = "Instant cellular text compose",
-                        icon = Icons.Default.Message,
+                        icon = Icons.AutoMirrored.Filled.Message,
                         accentColor = JarvisElectricBlue,
                         modifier = Modifier.weight(1f),
                         onClick = { onQuickCommand("Send SMS text") }

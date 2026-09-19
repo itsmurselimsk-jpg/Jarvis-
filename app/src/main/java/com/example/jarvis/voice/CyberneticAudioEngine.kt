@@ -95,6 +95,29 @@ object CyberneticAudioEngine {
     }
 
     /**
+     * Harmonious high-tech confirmation pulse for completed Stark protocols.
+     */
+    fun playProtocolSuccess() {
+        if (isMuted) return
+        scope.launch {
+            val chord = listOf(587.33f to 60, 880f to 80, 1174.66f to 120)
+            for ((freq, dur) in chord) {
+                synthesizeTone(startFreq = freq, endFreq = freq * 1.05f, durationMs = dur, amplitude = 0.24f, decay = true)
+            }
+        }
+    }
+
+    /**
+     * Subtle holographic particle pulse chime.
+     */
+    fun playHologramPulse() {
+        if (isMuted) return
+        scope.launch {
+            synthesizeTone(startFreq = 2400f, endFreq = 3200f, durationMs = 40, amplitude = 0.15f, decay = true)
+        }
+    }
+
+    /**
      * Low-level procedural PCM tone synthesizer writing directly to AudioTrack.
      */
     private fun synthesizeTone(

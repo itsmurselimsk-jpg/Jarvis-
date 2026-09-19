@@ -21,12 +21,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
@@ -337,10 +337,10 @@ private fun FileCardItem(
         "docx" -> JarvisElectricBlue to Icons.Default.Description
         "xlsx" -> JarvisGreen to Icons.Default.TableChart
         "csv" -> JarvisAmber to Icons.Default.TableChart
-        "json" -> JarvisPurpleHighlight to Icons.Default.InsertDriveFile
-        "txt" -> JarvisCyan to Icons.Default.InsertDriveFile
+        "json" -> JarvisPurpleHighlight to Icons.AutoMirrored.Filled.InsertDriveFile
+        "txt" -> JarvisCyan to Icons.AutoMirrored.Filled.InsertDriveFile
         "md" -> JarvisCyanBright to Icons.Default.Description
-        else -> JarvisCyan to Icons.Default.InsertDriveFile
+        else -> JarvisCyan to Icons.AutoMirrored.Filled.InsertDriveFile
     }
 
     Box(
