@@ -451,6 +451,27 @@ object LocalNeuralBrainProvider {
             lower.contains("तस्वीर में क्या लिखा है") || lower.contains("ocr") ->
                 ToolDecision(true, "VisionOcr", userInput, "Advanced Vision and OCR extraction")
 
+            // Structured Deep Research Engine (Multi-round sub-question planning & evidence graphs)
+            lower.startsWith("do deep research") || lower.startsWith("deep research") ||
+            lower.contains("research this thoroughly") || lower.contains("research thoroughly") ||
+            lower.startsWith("investigate this topic") || lower.startsWith("investigate and analyze") ||
+            lower.contains("compare multiple sources") || lower.contains("find evidence for this claim") ||
+            lower.contains("research and verify this") || lower.contains("give me a detailed research report") ||
+            lower.contains("detailed research report") || lower.contains("exhaustive research") ||
+            lower.startsWith("investigate ") ->
+                ToolDecision(true, "DeepResearch", userInput, "Structured multi-round deep research with sub-question planning and evidence extraction")
+
+            // Advanced Web Research & Source Verification
+            lower.startsWith("research") || lower.contains("research about") || lower.contains("research on") ||
+            lower.startsWith("search the web") || lower.contains("search the web for") ||
+            lower.startsWith("find the latest") || lower.startsWith("find official information") ||
+            lower.startsWith("check whether this is true") || lower.startsWith("check whether") ||
+            lower.startsWith("verify this claim") || lower.startsWith("verify claim") || lower.startsWith("verify whether") ||
+            lower.contains("compare these sources") || lower.contains("compare sources") ||
+            lower.contains("what do reliable sources say") || lower.contains("what do sources say") ||
+            lower.startsWith("search for") || lower.startsWith("google ") || lower.startsWith("web search") ->
+                ToolDecision(true, "WebResearch", userInput, "Safe web research, multi-source corroboration, and source verification")
+
             // Universal Phone Search (Local apps, contacts, tasks, memories, notifications)
             lower.startsWith("search phone") || lower.startsWith("search on phone") || lower.startsWith("phone search") ||
             lower.startsWith("find on phone") || lower.startsWith("find in phone") || lower.startsWith("search my phone") ||
@@ -459,10 +480,6 @@ object LocalNeuralBrainProvider {
             lower.startsWith("find ") || lower.startsWith("locate ") || lower.startsWith("lookup ") ||
             lower.contains("ফোনে সার্চ") || lower.contains("ফোন সার্চ") || lower.contains("খোঁজো") || lower.contains("ढूंढो") ->
                 ToolDecision(true, "UniversalSearch", userInput, "Local universal phone index search")
-
-            // Web Search
-            lower.startsWith("search for") || lower.startsWith("google ") || lower.startsWith("search ") ->
-                ToolDecision(true, "WebSearch", userInput, "External web search synthesis")
 
             // Document Intelligence
             lower.contains("analyze document") || lower.contains("document summary") || lower.contains("document entities") ||
@@ -480,6 +497,51 @@ object LocalNeuralBrainProvider {
             lower.contains("create a markdown") || lower.contains("generate markdown") || lower.contains("save as markdown") || lower.contains("export to markdown") ||
             lower.contains("create a text file") || lower.contains("generate text file") || lower.contains("save as txt") || lower.contains("export as txt") ->
                 ToolDecision(true, "FileGeneration", userInput, "Structured file generation pipeline")
+
+            // Advanced Code Analysis, Review, Explanation & Stack Trace Debugging
+            lower.startsWith("analyze code") || lower.startsWith("review code") || lower.startsWith("explain code") ||
+            lower.contains("explain this code") || lower.contains("what does this function do") ||
+            lower.contains("find the bug") || lower.contains("find bug") || lower.contains("review this code") ||
+            lower.contains("how can i improve this") || lower.contains("why is this error happening") ||
+            lower.contains("debug this error") || lower.contains("analyze stack trace") || lower.contains("debug stack trace") ||
+            lower.contains("code analysis") || lower.contains("code review") || lower.contains("check this code") ||
+            lower.contains("analyze snippet") || (userInput.contains("```") && (lower.contains("bug") || lower.contains("error") || lower.contains("review") || lower.contains("explain"))) ->
+                ToolDecision(true, "CodeAnalysis", userInput, "Advanced safe static code and stack trace analysis")
+
+            // Dedicated High-Fidelity Translation Engine
+            lower.startsWith("translate") || lower.contains("translate this") || lower.contains("translate to") ||
+            lower.contains("translate into") || lower.contains("translate from") || lower.contains("translate english to") ||
+            lower.contains("translate bangla to") || lower.contains("translate hindi to") ||
+            lower.contains("mein translate karo") || lower.contains("me translate karo") || lower.contains("me translate kijiye") ||
+            lower.contains("what does this mean in") || lower.contains("how do you say") ||
+            userInput.contains("অনুবাদ করো") || userInput.contains("অনুবাদ করুন") || userInput.contains("অনুবাদ") ->
+                ToolDecision(true, "Translation", userInput, "Dedicated multi-language translation engine")
+
+            // Connected Services & Cloud Workspace Plugins
+            lower.contains("cloud record") || lower.contains("workspace record") || lower.contains("cloud workspace") ||
+            lower.startsWith("search cloud") || lower.startsWith("search workspace") || lower.startsWith("find cloud record") ||
+            (lower.contains("search") && lower.contains("connected service")) ->
+                ToolDecision(true, "SearchCloudRecords", userInput, "Connected cloud workspace search")
+
+            lower.startsWith("create cloud record") || lower.startsWith("add cloud record") || lower.startsWith("save to cloud") ||
+            lower.startsWith("new cloud record") ->
+                ToolDecision(true, "CreateCloudRecord", userInput, "Create record in connected cloud workspace")
+
+            lower.startsWith("delete cloud record") || lower.startsWith("remove cloud record") ->
+                ToolDecision(true, "DeleteCloudRecord", userInput, "Delete record from connected cloud workspace")
+
+            lower.contains("cloud account") || lower.contains("cloud storage quota") || lower.contains("workspace profile") ->
+                ToolDecision(true, "GetCloudAccountProfile", userInput, "Retrieve connected cloud profile")
+
+            lower.contains("cloud note") || lower.startsWith("search cloud notes") || lower.startsWith("search notes records") ||
+            (lower.contains("search notes") && lower.contains("cloud")) ->
+                ToolDecision(true, "SearchNotesRecords", userInput, "Search connected cloud notes")
+
+            lower.startsWith("create cloud note") || lower.startsWith("add cloud note") || lower.startsWith("new cloud note") ->
+                ToolDecision(true, "CreateNotesRecord", userInput, "Create note in connected cloud notebook")
+
+            lower.startsWith("delete cloud note") || lower.startsWith("remove cloud note") ->
+                ToolDecision(true, "DeleteNotesRecord", userInput, "Delete note from connected cloud notebook")
 
             // Weather
             lower.contains("weather") || lower.contains("forecast") ->

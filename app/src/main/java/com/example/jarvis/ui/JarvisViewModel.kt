@@ -45,7 +45,8 @@ enum class SubScreen {
     ABOUT,
     DIAGNOSTICS,
     NOTIFICATIONS,
-    SEARCH
+    SEARCH,
+    PLUGINS
 }
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
@@ -74,6 +75,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             _safetyRequest.value = request
         }
     )
+
+    val pluginManager = brain.pluginManager
+    val plugins = pluginManager.pluginsState
 
     val recoveryState = brain.recoveryState
     val currentPlanExplanation = brain.currentPlanExplanation

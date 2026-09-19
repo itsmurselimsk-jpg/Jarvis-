@@ -13,7 +13,8 @@ data class ToolContext(
     val activeFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null,
     val previousDocument: com.example.jarvis.document.DocumentModel? = null,
     val previousFileAnalysis: com.example.jarvis.document.FileAnalysisResult? = null,
-    val fileGenerationPipeline: com.example.jarvis.generation.FileGenerationPipeline? = null
+    val fileGenerationPipeline: com.example.jarvis.generation.FileGenerationPipeline? = null,
+    val aiProvider: com.example.jarvis.provider.AIProvider? = null
 )
 
 data class ToolResult(

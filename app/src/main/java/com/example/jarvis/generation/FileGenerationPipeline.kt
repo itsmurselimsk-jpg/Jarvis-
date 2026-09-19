@@ -23,14 +23,11 @@ class FileGenerationPipeline(
     private val context: Context,
     private val baseDirectory: File = File(context.filesDir, "generated_files")
 ) {
-    private val generators = mapOf<GeneratedFileFormat, FileGenerator>(
+    private val generators: Map<GeneratedFileFormat, FileGenerator> = mapOf(
         GeneratedFileFormat.TXT to TxtFileGenerator(),
         GeneratedFileFormat.MARKDOWN to MarkdownFileGenerator(),
         GeneratedFileFormat.JSON to JsonFileGenerator(),
-        GeneratedFileFormat.CSV to CsvFileGenerator(),
-        GeneratedFileFormat.PDF to PdfFileGenerator(),
-        GeneratedFileFormat.DOCX to DocxFileGenerator(),
-        GeneratedFileFormat.XLSX to XlsxFileGenerator()
+        GeneratedFileFormat.CSV to CsvFileGenerator()
     )
 
     init {

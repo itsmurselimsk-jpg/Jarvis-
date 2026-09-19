@@ -86,7 +86,8 @@ fun SettingsScreen(
     onNavigateAbout: () -> Unit = {},
     onNavigateDiagnostics: () -> Unit = {},
     onNavigateNotifications: () -> Unit = {},
-    onNavigateSearch: () -> Unit = {}
+    onNavigateSearch: () -> Unit = {},
+    onNavigatePlugins: () -> Unit = {}
 ) {
     var providerType by remember { mutableStateOf(currentSettings.providerType) }
     var customApiKey by remember { mutableStateOf(currentSettings.customApiKey) }
@@ -324,7 +325,8 @@ fun SettingsScreen(
         // 5. System Tools & Diagnostics Section
         // ==========================================
         item {
-            SettingsCategoryCard(title = "SYSTEM TOOLS & DIAGNOSTICS") {
+            SettingsCategoryCard(title = "SYSTEM TOOLS & PLUGINS") {
+                SubmoduleNavigationRow("Connected Services & Plugin Vault", Icons.Default.Build, onNavigatePlugins)
                 SubmoduleNavigationRow("Universal Phone Search", Icons.Default.Search, onNavigateSearch)
                 SubmoduleNavigationRow("Optical Vision HUD & OCR", Icons.Default.Visibility, onNavigateVision)
                 SubmoduleNavigationRow("Hardware Telemetry Bridge", Icons.Default.Bolt, onNavigateBridge)

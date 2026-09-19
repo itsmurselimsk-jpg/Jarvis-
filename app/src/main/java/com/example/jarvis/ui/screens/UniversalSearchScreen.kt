@@ -105,6 +105,12 @@ fun UniversalSearchScreen(
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var actionFeedback by remember { mutableStateOf<String?>(null) }
 
+    // Deep Research State
+    var isDeepResearching by remember { mutableStateOf(false) }
+    var deepResearchProgress by remember { mutableStateOf("") }
+    var deepResearchResult by remember { mutableStateOf<com.example.jarvis.search.deep.DeepResearchResult?>(null) }
+    var deepResearchJob by remember { mutableStateOf<Job?>(null) }
+
     var hasContactsPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -289,6 +295,150 @@ fun UniversalSearchScreen(
                         fontFamily = FontFamily.Monospace,
                         color = if (isSelected) JarvisCyanBright else JarvisTextSecondary
                     )
+                }
+            }
+        }
+
+        // Deep Research Quick Action & Card
+        if (searchQuery.isNotBlank()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "DEEP INVESTIGATION",
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = JarvisCyan
+                )
+                Button(
+                    onClick = {
+                        if (isDeepResearching) {
+                            deepResearchJob?.cancel()
+                            isDeepResearching = false
+                            deepResearchProgress = "Research cancelled."
+                        } else {
+                            isDeepResearching = true
+                            deepResearchProgress = "Initializing multi-round research plan..."
+                            deepResearchResult = null
+                            deepResearchJob = coroutineScope.launch {
+                                try {
+                                    val engine = com.example.jarvis.search.deep.DeepResearchEngine(bridge = bridge)
+                                    val res = engine.executeDeepResearch(
+                                        rawQuestion = searchQuery,
+                                        depth = com.example.jarvis.search.deep.ResearchDepth.STANDARD,
+                                        onProgress = { deepResearchProgress = it }
+                                    )
+                                    deepResearchResult = res
+                                    isDeepResearching = false
+                                } catch (_: Exception) {
+                                    isDeepResearching = false
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDeepResearching) JarvisAmber else JarvisCyan.copy(alpha = 0.25f),
+                        contentColor = if (isDeepResearching) Color.Black else JarvisCyanBright
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Text(
+                        text = if (isDeepResearching) "⏹ CANCEL" else "🔬 RUN DEEP RESEARCH",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
+        // Deep Research Progress or Result Card
+        if (isDeepResearching || deepResearchResult != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0C1626))
+                    .border(1.dp, if (isDeepResearching) JarvisCyan else JarvisGreen, RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (isDeepResearching) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = JarvisCyan
+                                )
+                                Text(
+                                    text = "RESEARCHING...",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = JarvisCyan
+                                )
+                            } else {
+                                Text(
+                                    text = "✅ DOSSIER READY (${deepResearchResult?.sources?.size ?: 0} SOURCES)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = JarvisGreen
+                                )
+                            }
+                        }
+
+                        if (isDeepResearching) {
+                            Text(
+                                text = "MULTI-ROUND",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = JarvisTextDim
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    if (isDeepResearching) {
+                        Text(
+                            text = deepResearchProgress,
+                            fontSize = 11.sp,
+                            color = JarvisCyanBright,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    } else if (deepResearchResult != null) {
+                        val res = deepResearchResult!!
+                        Text(
+                            text = res.directAnswer,
+                            fontSize = 12.sp,
+                            color = JarvisTextPrimary,
+                            lineHeight = 16.sp
+                        )
+                        if (res.keyFindings.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            res.keyFindings.take(3).forEach { finding ->
+                                Text(
+                                    text = "• $finding",
+                                    fontSize = 11.sp,
+                                    color = JarvisCyanBright,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

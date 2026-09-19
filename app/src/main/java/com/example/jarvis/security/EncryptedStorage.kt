@@ -111,4 +111,6 @@ object SensitiveDataFilter {
         sanitized = BEARER_TOKEN_REGEX.replace(sanitized, "Bearer [PROTECTED_TOKEN]")
         return sanitized
     }
+
+    fun redactSensitiveData(text: String): String = sanitizeForDisplay(text)
 }

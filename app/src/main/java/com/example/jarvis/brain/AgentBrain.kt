@@ -71,6 +71,8 @@ class AgentBrain(
 
     var onSpeechCompletedCallback: (() -> Unit)? = null
 
+    val pluginManager = com.example.jarvis.plugin.PluginManager(bridge.getApplicationContext(), repository)
+
     init {
         // Register all real Android tools
         registry.register(BatteryTool())
@@ -102,6 +104,15 @@ class AgentBrain(
         registry.register(VisionOcrTool())
         registry.register(DocumentIntelligenceTool())
         registry.register(FileGenerationTool())
+        registry.register(CodeAnalysisTool())
+        registry.register(TranslationTool())
+        registry.register(WebResearchTool())
+        registry.register(DeepResearchTool())
+        pluginManager.syncToolsWithBrain(this)
+    }
+
+    fun syncPluginTools() {
+        pluginManager.syncToolsWithBrain(this)
     }
 
     private val fileGenerationPipeline by lazy {
@@ -415,7 +426,8 @@ class AgentBrain(
             activeFileAnalysis = activeFileAnalysis,
             previousDocument = previousDocument,
             previousFileAnalysis = previousFileAnalysis,
-            fileGenerationPipeline = fileGenerationPipeline
+            fileGenerationPipeline = fileGenerationPipeline,
+            aiProvider = aiProvider
         )
 
         // 5. Safe Tool Execution with idempotency & error recovery

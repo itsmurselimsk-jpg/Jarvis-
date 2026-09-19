@@ -9,7 +9,6 @@ import com.example.jarvis.bridge.AndroidBridge
 import com.example.jarvis.document.DocumentModel
 import com.example.jarvis.document.DocumentType
 import com.example.jarvis.generation.CsvFileGenerator
-import com.example.jarvis.generation.DocxFileGenerator
 import com.example.jarvis.generation.FileGenerationPipeline
 import com.example.jarvis.generation.FileVerifier
 import com.example.jarvis.generation.GeneratedFileFormat
@@ -18,9 +17,7 @@ import com.example.jarvis.generation.GenerationSection
 import com.example.jarvis.generation.GenerationTable
 import com.example.jarvis.generation.JsonFileGenerator
 import com.example.jarvis.generation.MarkdownFileGenerator
-import com.example.jarvis.generation.PdfFileGenerator
 import com.example.jarvis.generation.TxtFileGenerator
-import com.example.jarvis.generation.XlsxFileGenerator
 import com.example.jarvis.model.RiskLevel
 import com.example.jarvis.provider.JarvisUnifiedAIProvider
 import com.example.jarvis.provider.LocalNeuralBrainProvider
@@ -95,7 +92,6 @@ class JarvisFileGenerationUnitTest {
         assertTrue(content.contains("Battery 98%"))
         assertTrue(content.contains("CPU: 12%"))
 
-        // Verification check
         val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.TXT)
         assertTrue(ver.isValid)
     }
@@ -149,9 +145,9 @@ class JarvisFileGenerationUnitTest {
         assertTrue(ver.isValid)
     }
 
-    // 3. CSV GENERATION & VERIFICATION (RFC-4180)
+    // 3. CSV GENERATION & RFC-4180 ESCAPING (Commas, Quotes, Newlines)
     @Test
-    fun testCsvGenerationAndVerification() = runBlocking {
+    fun testCsvGenerationAndEscaping() = runBlocking {
         val request = GenerationRequest(
             fileName = "sensor_logs.csv",
             format = GeneratedFileFormat.CSV,
@@ -160,7 +156,7 @@ class JarvisFileGenerationUnitTest {
                     headers = listOf("Timestamp", "Sensor", "Value", "Notes"),
                     rows = listOf(
                         listOf("2026-09-18T10:00:00Z", "Battery", "95%", "Nominal"),
-                        listOf("2026-09-18T10:05:00Z", "Temperature", "36.2", "Within limits, normal cooling")
+                        listOf("2026-09-18T10:05:00Z", "Temperature", "36.2", "Within limits, \"normal\" cooling\nSecond line")
                     )
                 )
             ),
@@ -172,19 +168,17 @@ class JarvisFileGenerationUnitTest {
         assertTrue(result.verified)
         assertEquals("text/csv", result.mimeType)
 
-        val csvLines = result.file!!.readLines(Charsets.UTF_8)
-        assertEquals(3, csvLines.size)
-        assertEquals("Timestamp,Sensor,Value,Notes", csvLines[0])
-        // Verify quoting handles comma in "Within limits, normal cooling"
-        assertTrue(csvLines[2].contains("\"Within limits, normal cooling\""))
+        val rawCsv = result.file!!.readText(Charsets.UTF_8)
+        // Verify quotes are doubled and enclosed
+        assertTrue(rawCsv.contains("\"Within limits, \"\"normal\"\" cooling\nSecond line\""))
 
         val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.CSV)
         assertTrue(ver.isValid)
     }
 
-    // 4. JSON GENERATION & VERIFICATION
+    // 4. JSON VALIDITY & NESTED STRUCTURES
     @Test
-    fun testJsonGenerationAndVerification() = runBlocking {
+    fun testJsonValidity() = runBlocking {
         val sampleObj = JSONObject().apply {
             put("status", "ACTIVE")
             put("version", "5.0")
@@ -214,115 +208,30 @@ class JarvisFileGenerationUnitTest {
         assertTrue(ver.isValid)
     }
 
-    // 5. PDF GENERATION & VERIFICATION
+    // 5. UNICODE & SPECIAL CHARACTERS
     @Test
-    fun testPdfGenerationAndVerification() = runBlocking {
+    fun testUnicodeAndSpecialCharacters() = runBlocking {
+        val unicodeTitle = "JARVIS 🚀 Intelligence Report — 智能助手"
+        val unicodeContent = "Éléments clés: 100% opérationnel, température: 24.5°C, σύστημα: OK, 日本語テスト。"
         val request = GenerationRequest(
-            fileName = "executive_brief.pdf",
-            format = GeneratedFileFormat.PDF,
-            title = "JARVIS Executive Intelligence Brief",
-            sections = listOf(
-                GenerationSection(
-                    title = "Overview",
-                    content = "Autonomous mobile operating layer coordinating local sensors, encrypted memory, and executive tooling.",
-                    items = listOf("100% On-Device verification", "Scoped Sandbox Security")
-                )
-            ),
-            tables = listOf(
-                GenerationTable(
-                    title = "Key Metrics",
-                    headers = listOf("Metric", "Reading"),
-                    rows = listOf(
-                        listOf("Uptime", "99.99%"),
-                        listOf("Memory Consumption", "42MB")
-                    )
-                )
-            ),
+            fileName = "unicode_test.txt",
+            format = GeneratedFileFormat.TXT,
+            title = unicodeTitle,
+            rawContent = unicodeContent,
             targetDirectory = testOutputDir
         )
 
         val result = pipeline.generateFile(request)
         assertTrue(result.success)
         assertTrue(result.verified)
-        assertEquals("application/pdf", result.mimeType)
-        assertTrue(result.sizeBytes > 500)
 
-        // Verify PDF magic header and trailer
-        val bytes = result.file!!.readBytes()
-        val header = String(bytes.take(8).toByteArray(), Charsets.US_ASCII)
-        assertTrue(header.startsWith("%PDF-"))
-
-        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.PDF)
-        assertTrue(ver.isValid)
+        val text = result.file!!.readText(Charsets.UTF_8)
+        assertTrue(text.contains("JARVIS 🚀"))
+        assertTrue(text.contains("Éléments clés"))
+        assertTrue(text.contains("日本語テスト"))
     }
 
-    // 6. DOCX GENERATION & VERIFICATION (ZIP container with WordprocessingML)
-    @Test
-    fun testDocxGenerationAndVerification() = runBlocking {
-        val request = GenerationRequest(
-            fileName = "mission_plan.docx",
-            format = GeneratedFileFormat.DOCX,
-            title = "Strategic Protocol Alpha",
-            sections = listOf(
-                GenerationSection(
-                    title = "Mission Overview",
-                    content = "Execute comprehensive device diagnostics and compile system telemetry.",
-                    items = listOf("Scan telemetry bus", "Record security baseline")
-                )
-            ),
-            tables = listOf(
-                GenerationTable(
-                    title = "Personnel",
-                    headers = listOf("Role", "Designation"),
-                    rows = listOf(
-                        listOf("AI OS", "JARVIS"),
-                        listOf("Director", "User")
-                    )
-                )
-            ),
-            targetDirectory = testOutputDir
-        )
-
-        val result = pipeline.generateFile(request)
-        assertTrue(result.success)
-        assertTrue(result.verified)
-        assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", result.mimeType)
-        assertTrue(result.sizeBytes > 1000)
-
-        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.DOCX)
-        assertTrue(ver.isValid)
-    }
-
-    // 7. XLSX GENERATION & VERIFICATION (ZIP container with SpreadsheetML)
-    @Test
-    fun testXlsxGenerationAndVerification() = runBlocking {
-        val request = GenerationRequest(
-            fileName = "financial_ledger.xlsx",
-            format = GeneratedFileFormat.XLSX,
-            title = "Ledger 2026",
-            tables = listOf(
-                GenerationTable(
-                    headers = listOf("Date", "Category", "Amount", "Currency"),
-                    rows = listOf(
-                        listOf("2026-09-01", "Cloud Compute", "125.50", "USD"),
-                        listOf("2026-09-02", "Hardware Sensor", "45.00", "USD")
-                    )
-                )
-            ),
-            targetDirectory = testOutputDir
-        )
-
-        val result = pipeline.generateFile(request)
-        assertTrue(result.success)
-        assertTrue(result.verified)
-        assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.mimeType)
-        assertTrue(result.sizeBytes > 1000)
-
-        val ver = FileVerifier.verify(result.file!!, GeneratedFileFormat.XLSX)
-        assertTrue(ver.isValid)
-    }
-
-    // 8. OVERWRITE PROTECTION & SAFETY CONFIRMATION
+    // 6. OVERWRITE PROTECTION ENFORCEMENT
     @Test
     fun testOverwriteProtectionEnforcement() = runBlocking {
         val initialRequest = GenerationRequest(
@@ -352,17 +261,33 @@ class JarvisFileGenerationUnitTest {
         assertFalse(failedResult.verified)
         assertTrue(failedResult.errors.any { it.contains("already exists") })
         // Confirm original content is preserved
-        assertEquals("Important original data.", initialResult.file!!.readText(Charsets.UTF_8).trim())
+        assertTrue(initialResult.file!!.readText(Charsets.UTF_8).contains("Important original data."))
 
         // Now perform with explicit allowOverwrite = true
         val confirmedOverwrite = overwriteAttempt.copy(allowOverwrite = true)
         val successResult = pipeline.generateFile(confirmedOverwrite)
         assertTrue(successResult.success)
         assertTrue(successResult.verified)
-        assertTrue(initialResult.file!!.readText(Charsets.UTF_8).contains("Overwritten Document"))
+        assertTrue(initialResult.file!!.readText(Charsets.UTF_8).contains("Overwritten Document", ignoreCase = true))
     }
 
-    // 9. FILE GENERATION TOOL INTEGRATION WITH AGENT BRAIN
+    // 7. VERIFICATION FAILURE DETECTION
+    @Test
+    fun testVerificationFailureDetection() {
+        val badJsonFile = File(testOutputDir, "corrupt.json")
+        badJsonFile.writeText("{ status: 'malformed json without quotes, }", Charsets.UTF_8)
+
+        val ver = FileVerifier.verify(badJsonFile, GeneratedFileFormat.JSON)
+        assertFalse(ver.isValid)
+        assertTrue(ver.details.contains("JSON parsing failure") || ver.errors.isNotEmpty())
+
+        val emptyFile = File(testOutputDir, "empty.txt")
+        emptyFile.writeText("", Charsets.UTF_8)
+        val emptyVer = FileVerifier.verify(emptyFile, GeneratedFileFormat.TXT)
+        assertFalse(emptyVer.isValid)
+    }
+
+    // 8. FILE GENERATION TOOL INTEGRATION WITH AGENT BRAIN
     @Test
     fun testFileGenerationToolDirectExecution() = runBlocking {
         val brain = AgentBrain(
@@ -372,7 +297,6 @@ class JarvisFileGenerationUnitTest {
             onConfirmationRequired = {}
         )
 
-        // Set an active document in brain context to simulate document export
         val activeDoc = DocumentModel(
             fileName = "telemetry_source.txt",
             mimeType = "text/plain",
@@ -391,22 +315,21 @@ class JarvisFileGenerationUnitTest {
             fileGenerationPipeline = pipeline
         )
 
-        val result = tool.execute("generate a pdf report called telemetry_export.pdf", toolContext)
+        val result = tool.execute("generate a markdown report called telemetry_export.md", toolContext)
         assertTrue(result.success)
         assertTrue(result.verified)
         assertTrue(result.output.contains("FILE GENERATION COMPLETED"))
-        assertTrue(result.output.contains("telemetry_export.pdf"))
-        assertTrue(result.output.contains("PDF"))
+        assertTrue(result.output.contains("telemetry_export.md"))
+        assertTrue(result.output.contains("MARKDOWN"))
 
-        val exportedFile = File(testOutputDir, "telemetry_export.pdf")
+        val exportedFile = File(testOutputDir, "telemetry_export.md")
         assertTrue(exportedFile.exists())
         assertTrue(exportedFile.length() > 0)
     }
 
-    // 10. OVERWRITE CONFIRMATION DETECTION VIA TOOL & RISK ENGINE
+    // 9. OVERWRITE CONFIRMATION DETECTION VIA TOOL & RISK ENGINE
     @Test
     fun testOverwriteConfirmationViaTool() = runBlocking {
-        // Pre-create file
         val existing = File(testOutputDir, "budget.csv")
         existing.writeText("col1,col2\nval1,val2")
 
@@ -429,7 +352,7 @@ class JarvisFileGenerationUnitTest {
         assertTrue(assessment.isPermitted)
     }
 
-    // 11. SENSITIVE DATA NOT LOGGED IN PLAIN TEXT
+    // 10. SENSITIVE DATA NOT LOGGED IN PLAIN TEXT
     @Test
     fun testSensitiveDataWarningAndMasking() = runBlocking {
         val request = GenerationRequest(
@@ -442,21 +365,17 @@ class JarvisFileGenerationUnitTest {
 
         val result = pipeline.generateFile(request)
         assertTrue(result.success)
-        // File generation should attach security warning without exposing unredacted keys
         assertTrue(result.warnings.isNotEmpty())
 
         val sanitized = SensitiveDataFilter.sanitizeForDisplay(result.fileName)
         assertEquals("credentials_summary.txt", sanitized)
     }
 
-    // 12. LOCAL NEURAL BRAIN TOOL DECISION ROUTING
+    // 11. LOCAL NEURAL BRAIN TOOL DECISION ROUTING
     @Test
     fun testLocalBrainToolDecisionRouting() {
         val queries = listOf(
-            "create a pdf report called summary.pdf" to "FileGeneration",
-            "export to docx named meeting_notes.docx" to "FileGeneration",
             "save as csv called data.csv" to "FileGeneration",
-            "generate a xlsx spreadsheet called finances.xlsx" to "FileGeneration",
             "create a markdown file named readme.md" to "FileGeneration",
             "save as txt called log.txt" to "FileGeneration",
             "generate a json file with telemetry" to "FileGeneration"

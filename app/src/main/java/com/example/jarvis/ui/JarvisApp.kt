@@ -328,6 +328,10 @@ fun JarvisApp(
                                         viewModel.openSubScreen(subScreen)
                                     }
                                 )
+                                SubScreen.PLUGINS -> com.example.jarvis.ui.screens.PluginsScreen(
+                                    pluginManager = viewModel.pluginManager,
+                                    onBack = { viewModel.closeSubScreen() }
+                                )
                             }
                         }
                     } else {
@@ -450,7 +454,8 @@ fun JarvisApp(
                                 onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
                                 onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
                                 onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
-                                onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) }
+                                onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
+                                onNavigatePlugins = { viewModel.openSubScreen(SubScreen.PLUGINS) }
                             )
                         }
                     }
