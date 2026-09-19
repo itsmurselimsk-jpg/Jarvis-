@@ -258,16 +258,36 @@ class AgentBrain(
 
             val contextString = contextBuilder.toString().trimEnd()
 
+            // 1b. Intent Classification & Language Style
+            val intentResult = com.example.jarvis.intent.IntentClassifier.classify(input)
+            val langStyle = com.example.jarvis.personality.JarvisPersonality.detectLanguageStyle(input)
+
+            if (intentResult.intent == com.example.jarvis.intent.ConversationIntent.CLARIFICATION) {
+                val clarQuestion = intentResult.clarificationQuestion ?: "Kya aap thoda clear bol sakte hain?"
+                repository.addMessage(ChatMessage(sender = MessageSender.JARVIS, text = clarQuestion))
+                deliverFinalResponse(clarQuestion, onSpeaking, onIdle)
+                return@launch
+            }
+
             // 2. Memory Retrieval
-            val relevantMemories = retrieveRelevantMemories(input)
+            val relevantMemories = if (intentResult.intent == com.example.jarvis.intent.ConversationIntent.GREETING ||
+                intentResult.intent == com.example.jarvis.intent.ConversationIntent.CASUAL_CONVERSATION) {
+                ""
+            } else {
+                retrieveRelevantMemories(input)
+            }
 
             // 3. AI Planning & Tool Selection
             _currentPlanExplanation.value = "Analyzing intent & selecting tools..."
-            val decision = aiProvider.decideTool(
-                userInput = input,
-                availableTools = registry.getToolDefinitions(),
-                contextHistory = "$contextString\n$relevantMemories"
-            )
+            val decision = if (!intentResult.requiresTool) {
+                com.example.jarvis.provider.ToolDecision(false, null, input, "Conversational intent: ${intentResult.intent}")
+            } else {
+                aiProvider.decideTool(
+                    userInput = input,
+                    availableTools = registry.getToolDefinitions(),
+                    contextHistory = "$contextString\n$relevantMemories"
+                )
+            }
 
             val selectedTool = if (decision.useTool && decision.toolName != null) {
                 registry.getTool(decision.toolName)
@@ -459,12 +479,14 @@ class AgentBrain(
             false
         }
 
+        val langStyle = com.example.jarvis.personality.JarvisPersonality.detectLanguageStyle(originalUserInput)
+
         val verifiedOutput = if (isVerified) {
-            result.output
+            com.example.jarvis.personality.JarvisPersonality.formatToolSuccessResponse(tool.name, result.output, langStyle)
         } else if (result.success) {
             "${result.output}\n\n*(Post-action verification alert: Device hardware state did not reflect expected change.)*"
         } else {
-            result.output
+            com.example.jarvis.personality.JarvisPersonality.formatToolFailureResponse(tool.name, result.output, langStyle)
         }
 
         _recoveryState.value = RecoveryState(status = RecoveryStatus.IDLE)

@@ -313,19 +313,21 @@ class OpenAiCompatibleAIProvider(
 object LocalNeuralBrainProvider {
 
     suspend fun generateLocalResponse(prompt: String, onChunkReceived: (String) -> Unit): String {
-        val lower = prompt.lowercase().trim()
-        val response = when {
-            lower.contains("who are you") || lower.contains("what are you") ->
-                "I am JARVIS — Just A Rather Very Intelligent System. Operating on your native Android layer, coordinating telemetry, hardware sensors, and secure tool executors."
-            lower.contains("status") || lower.contains("diagnostic") ->
-                "All JARVIS neural bridges, Room memory databases, and Android sensory buses are performing within nominal thresholds, Sir."
-            lower.contains("hello") || lower.contains("hey") || lower.contains("hi") ->
-                "Greetings, Sir. JARVIS core is listening and prepared for your command."
-            lower.contains("help") ->
-                "I can monitor battery, network, Wi-Fi, Bluetooth, adjust volume, toggle the flashlight, launch apps, browse URLs, inspect accessibility UI, summarize notifications, and manage your long-term memories and agenda."
-            else ->
-                "Understood, Sir. I have processed your input: \"$prompt\". Operating layer telemetry confirms all systems nominal."
+        val cleanText = prompt.substringAfterLast("User: ").substringBefore("\n").trim()
+        val textToProcess = if (cleanText.isNotBlank()) cleanText else prompt
+        val intentResult = com.example.jarvis.intent.IntentClassifier.classify(textToProcess)
+        val langStyle = com.example.jarvis.personality.JarvisPersonality.detectLanguageStyle(textToProcess)
+
+        val response = if (intentResult.intent == com.example.jarvis.intent.ConversationIntent.SYSTEM_STATUS) {
+            "All JARVIS subsystems are online. Battery, network, Wi-Fi, and memory databases are operating normally."
+        } else {
+            com.example.jarvis.personality.JarvisPersonality.generateConversationalResponse(
+                userInput = textToProcess,
+                intent = intentResult.intent,
+                languageStyle = langStyle
+            )
         }
+
         // Stream text smoothly
         val words = response.split(" ")
         val sb = StringBuilder()
@@ -338,6 +340,14 @@ object LocalNeuralBrainProvider {
     }
 
     fun decideToolLocal(userInput: String, availableTools: List<Pair<String, String>>): ToolDecision {
+        val intentResult = com.example.jarvis.intent.IntentClassifier.classify(userInput)
+        if (!intentResult.requiresTool) {
+            return ToolDecision(false, null, userInput, "Intent '${intentResult.intent}' is purely conversational")
+        }
+        if (intentResult.suggestedToolName != null) {
+            return ToolDecision(true, intentResult.suggestedToolName, userInput, intentResult.explanation)
+        }
+
         val lower = userInput.lowercase().trim()
 
         return when {
