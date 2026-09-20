@@ -1,10 +1,9 @@
 package com.example.jarvis.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,11 +21,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,11 +52,11 @@ import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextSecondary
 
 enum class NavTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Default.Home),
-    CHAT("Chat", Icons.Default.ChatBubble),
-    VOICE("Voice", Icons.Default.Mic),
-    TASKS("Tasks", Icons.Default.CheckCircle),
-    SETTINGS("Settings", Icons.Default.Settings);
+    HOME("HOME", Icons.Default.Adjust),
+    CONVERSATION("CHAT", Icons.Default.ChatBubble),
+    DEVICES("DEVICES", Icons.Default.Smartphone),
+    SKILLS("SKILLS", Icons.Default.AutoAwesome),
+    SETTINGS("SETTINGS", Icons.Default.Settings);
 }
 
 @Composable
@@ -64,25 +64,25 @@ fun BottomNav(
     currentTab: NavTab,
     onTabSelected: (NavTab) -> Unit
 ) {
-    // Floating container with navigation bar insets padding
+    // Floating futuristic holographic dock with navigation insets
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Translucent floating pill bar
+        // Translucent floating holographic pill bar with subtle neon border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(66.dp)
-                .clip(RoundedCornerShape(33.dp))
+                .height(68.dp)
+                .clip(RoundedCornerShape(34.dp))
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xEE0B1220),
-                            Color(0xF5060A14)
+                            Color(0xF0050B16),
+                            Color(0xFA02050B)
                         )
                     )
                 )
@@ -90,14 +90,14 @@ fun BottomNav(
                     width = 1.dp,
                     brush = Brush.horizontalGradient(
                         colors = listOf(
-                            JarvisCyan.copy(alpha = 0.35f),
-                            JarvisElectricBlue.copy(alpha = 0.15f),
-                            JarvisCyan.copy(alpha = 0.35f)
+                            JarvisCyan.copy(alpha = 0.45f),
+                            JarvisElectricBlue.copy(alpha = 0.20f),
+                            JarvisCyan.copy(alpha = 0.45f)
                         )
                     ),
-                    shape = RoundedCornerShape(33.dp)
+                    shape = RoundedCornerShape(34.dp)
                 )
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Row(
@@ -105,7 +105,7 @@ fun BottomNav(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NavTab.values().forEach { tab ->
+                NavTab.entries.forEach { tab ->
                     val isSelected = tab == currentTab
 
                     val animatedScale by animateFloatAsState(
@@ -114,39 +114,39 @@ fun BottomNav(
                             dampingRatio = Spring.DampingRatioMediumBouncy,
                             stiffness = Spring.StiffnessMedium
                         ),
-                        label = "tab_scale"
+                        label = "dock_tab_scale"
                     )
 
                     val pillAlpha by animateFloatAsState(
                         targetValue = if (isSelected) 1.0f else 0.0f,
-                        animationSpec = tween(durationMillis = 220),
-                        label = "pill_alpha"
+                        animationSpec = tween(durationMillis = 200),
+                        label = "dock_pill_alpha"
                     )
 
                     val iconTint by animateColorAsState(
                         targetValue = if (isSelected) JarvisCyanBright else JarvisTextDim,
                         animationSpec = tween(durationMillis = 200),
-                        label = "icon_tint"
+                        label = "dock_icon_tint"
                     )
 
                     val textTint by animateColorAsState(
                         targetValue = if (isSelected) JarvisCyan else JarvisTextSecondary.copy(alpha = 0.6f),
                         animationSpec = tween(durationMillis = 200),
-                        label = "text_tint"
+                        label = "dock_text_tint"
                     )
 
                     // Touch target with minimum 48dp height and width
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp)
-                            .clip(RoundedCornerShape(28.dp))
+                            .height(58.dp)
+                            .clip(RoundedCornerShape(29.dp))
                             .background(
                                 if (isSelected) {
                                     Brush.radialGradient(
                                         colors = listOf(
-                                            JarvisCyan.copy(alpha = 0.18f * pillAlpha),
-                                            Color(0xFF0F1E34).copy(alpha = 0.4f * pillAlpha),
+                                            JarvisCyan.copy(alpha = 0.22f * pillAlpha),
+                                            Color(0xFF0A1B30).copy(alpha = 0.5f * pillAlpha),
                                             Color.Transparent
                                         )
                                     )
@@ -173,7 +173,7 @@ fun BottomNav(
                                     .size(28.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        if (isSelected) JarvisCyan.copy(alpha = 0.12f) else Color.Transparent
+                                        if (isSelected) JarvisCyan.copy(alpha = 0.15f) else Color.Transparent
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -187,12 +187,23 @@ fun BottomNav(
 
                             Text(
                                 text = tab.label,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = textTint,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.8.sp
                             )
+
+                            // Glowing Indicator Dot
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(top = 2.dp)
+                                        .size(3.dp)
+                                        .clip(CircleShape)
+                                        .background(JarvisCyanBright)
+                                )
+                            }
                         }
                     }
                 }
@@ -200,4 +211,3 @@ fun BottomNav(
         }
     }
 }
-

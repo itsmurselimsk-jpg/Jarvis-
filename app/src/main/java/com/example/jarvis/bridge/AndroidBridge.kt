@@ -1183,6 +1183,51 @@ class AndroidBridge(private val context: Context) {
         }
     }
 
+    fun launchApp(packageName: String): Boolean {
+        return try {
+            val pm = context.packageManager
+            val intent = pm.getLaunchIntentForPackage(packageName)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
+            } else {
+                openUrl("https://play.google.com/store/apps/details?id=$packageName")
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun openCameraApp(): Boolean {
+        return try {
+            val intent = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun openMapsApp(query: String = ""): Boolean {
+        return try {
+            val uri = if (query.isNotBlank()) {
+                Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+            } else {
+                Uri.parse("geo:0,0")
+            }
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (_: Exception) {
+            openUrl("https://maps.google.com")
+        }
+    }
+
     // HARDWARE & SYSTEM DIAGNOSTICS
     fun getHardwareDiagnostics(): Map<String, String> {
         val runtime = Runtime.getRuntime()

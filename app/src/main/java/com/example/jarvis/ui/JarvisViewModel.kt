@@ -362,13 +362,13 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun askJarvisAboutDocument(prompt: String) {
         _activeSubScreen.value = null
-        _currentTab.value = NavTab.CHAT
+        _currentTab.value = NavTab.CONVERSATION
         sendUserMessage(prompt)
     }
 
     fun askJarvisAboutVision(prompt: String) {
         _activeSubScreen.value = null
-        _currentTab.value = NavTab.CHAT
+        _currentTab.value = NavTab.CONVERSATION
         sendUserMessage(prompt)
     }
 

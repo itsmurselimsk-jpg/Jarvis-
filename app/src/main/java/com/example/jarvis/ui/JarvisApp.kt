@@ -62,6 +62,7 @@ import com.example.jarvis.ui.screens.AccountProfileScreen
 import com.example.jarvis.ui.screens.ActivityScreen
 import com.example.jarvis.ui.screens.AndroidBridgeScreen
 import com.example.jarvis.ui.screens.ChatScreen
+import com.example.jarvis.ui.screens.DevicesScreen
 import com.example.jarvis.ui.screens.ForgotPasswordScreen
 import com.example.jarvis.ui.screens.HomeScreen
 import com.example.jarvis.ui.screens.LoginScreen
@@ -69,6 +70,7 @@ import com.example.jarvis.ui.screens.MemoryScreen
 import com.example.jarvis.ui.screens.PrivacyScreen
 import com.example.jarvis.ui.screens.SettingsScreen
 import com.example.jarvis.ui.screens.SignUpScreen
+import com.example.jarvis.ui.screens.SkillsScreen
 import com.example.jarvis.ui.screens.TasksScreen
 import com.example.jarvis.ui.screens.ToolsScreen
 import com.example.jarvis.ui.screens.VisionScreen
@@ -250,13 +252,13 @@ fun JarvisApp(
                             },
                             onSelectConversation = { title ->
                                 coroutineScope.launch { drawerState.close() }
-                                viewModel.setTab(NavTab.CHAT)
+                                viewModel.setTab(NavTab.CONVERSATION)
                                 viewModel.sendUserMessage("Let's talk about: $title")
                             },
                             onNewChatClick = {
                                 coroutineScope.launch { drawerState.close() }
                                 viewModel.repository.clearMessages()
-                                viewModel.setTab(NavTab.CHAT)
+                                viewModel.setTab(NavTab.CONVERSATION)
                             },
                             onProfileClick = {
                                 coroutineScope.launch { drawerState.close() }
@@ -264,7 +266,7 @@ fun JarvisApp(
                             },
                             onVoiceModeClick = {
                                 coroutineScope.launch { drawerState.close() }
-                                viewModel.setTab(NavTab.VOICE)
+                                viewModel.setTab(NavTab.HOME)
                             }
                         )
                     }
@@ -274,7 +276,15 @@ fun JarvisApp(
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = appBg
+                    containerColor = JarvisBackground,
+                    bottomBar = {
+                        if (activeSubScreen == null) {
+                            BottomNav(
+                                currentTab = currentTab,
+                                onTabSelected = { viewModel.setTab(it) }
+                            )
+                        }
+                    }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -287,8 +297,8 @@ fun JarvisApp(
                             Column(modifier = Modifier.fillMaxSize()) {
                                 SubScreenHeader(
                                     title = currentSubScreen.name,
-                                    isDarkTheme = isDarkTheme,
-                                    accentColor = selectedAccentColor,
+                                    isDarkTheme = true,
+                                    accentColor = JarvisCyan,
                                     onBack = { viewModel.closeSubScreen() }
                                 )
 
@@ -311,7 +321,7 @@ fun JarvisApp(
                                         onGenerateFilePrompt = { prompt ->
                                             viewModel.sendUserMessage(prompt)
                                             viewModel.closeSubScreen()
-                                            viewModel.setTab(NavTab.CHAT)
+                                            viewModel.setTab(NavTab.CONVERSATION)
                                         },
                                         onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
                                     )
@@ -432,14 +442,61 @@ fun JarvisApp(
                         } else {
                             // Main Screen Router
                             when (currentTab) {
-                                NavTab.HOME, NavTab.CHAT -> {
+                                NavTab.HOME -> {
+                                    HomeScreen(
+                                        jarvisState = jarvisState,
+                                        telemetry = telemetry,
+                                        isListening = isListening,
+                                        isSpeaking = isSpeaking,
+                                        liveTranscript = liveTranscript,
+                                        lastResponse = lastResponse,
+                                        messages = messages,
+                                        tasks = tasks,
+                                        memories = memories,
+                                        logs = logs,
+                                        settings = settings,
+                                        expenses = expenses,
+                                        habits = habits,
+                                        tiltX = deviceTilt.first,
+                                        tiltY = deviceTilt.second,
+                                        rmsDb = voiceRmsDb,
+                                        onVoiceClick = {
+                                            if (isListening) {
+                                                viewModel.stopListening()
+                                            } else {
+                                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            }
+                                        },
+                                        onChatClick = { viewModel.setTab(NavTab.CONVERSATION) },
+                                        onToolsClick = { viewModel.setTab(NavTab.SKILLS) },
+                                        onMemoryClick = { viewModel.openSubScreen(SubScreen.MEMORY) },
+                                        onActivityClick = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
+                                        onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) },
+                                        onPrivacyClick = { viewModel.openSubScreen(SubScreen.PRIVACY) },
+                                        onBridgeClick = { viewModel.setTab(NavTab.DEVICES) },
+                                        onSearchClick = { viewModel.openSubScreen(SubScreen.SEARCH) },
+                                        onTasksClick = { viewModel.openSubScreen(SubScreen.TASKS) },
+                                        onSettingsClick = { viewModel.setTab(NavTab.SETTINGS) },
+                                        onArmorClick = { viewModel.openSubScreen(SubScreen.ARMOR_THEMES) },
+                                        onExpenseClick = { viewModel.openSubScreen(SubScreen.EXPENSES) },
+                                        onHabitClick = { viewModel.openSubScreen(SubScreen.HABITS) },
+                                        onCodeStudioClick = { viewModel.openSubScreen(SubScreen.CODE_STUDIO) },
+                                        onTimerClick = { viewModel.openSubScreen(SubScreen.TIMER_STOPWATCH) },
+                                        onVoiceNotesClick = { viewModel.openSubScreen(SubScreen.VOICE_NOTES) },
+                                        onBackupClick = { viewModel.openSubScreen(SubScreen.BACKUP_EXPORT) },
+                                        onDiagnosticsClick = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
+                                        onQuickCommand = { viewModel.sendUserMessage(it) }
+                                    )
+                                }
+
+                                NavTab.CONVERSATION -> {
                                     val isOffline = settings.customApiKey.isBlank() &&
                                             (com.example.BuildConfig.GEMINI_API_KEY.isBlank() || com.example.BuildConfig.GEMINI_API_KEY == "MY_GEMINI_API_KEY")
                                     ChatScreen(
                                         messages = messages,
                                         jarvisState = jarvisState,
-                                        isDarkTheme = isDarkTheme,
-                                        accentColor = selectedAccentColor,
+                                        isDarkTheme = true,
+                                        accentColor = JarvisCyan,
                                         onSendMessage = { viewModel.sendUserMessage(it) },
                                         onCopyMessage = { viewModel.copyToClipboard(it) },
                                         onSpeakMessage = { viewModel.speakText(it) },
@@ -448,7 +505,13 @@ fun JarvisApp(
                                         onOpenDrawer = {
                                             coroutineScope.launch { drawerState.open() }
                                         },
-                                        onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
+                                        onVoiceClick = {
+                                            if (isListening) {
+                                                viewModel.stopListening()
+                                            } else {
+                                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            }
+                                        },
                                         onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) },
                                         onCodeStudioClick = { viewModel.openSubScreen(SubScreen.CODE_STUDIO) },
                                         onGetPlusClick = { viewModel.setTab(NavTab.SETTINGS) },
@@ -457,79 +520,72 @@ fun JarvisApp(
                                     )
                                 }
 
-                                NavTab.VOICE -> com.example.jarvis.ui.screens.VoiceScreen(
-                                    jarvisState = jarvisState,
-                                    isListening = isListening,
-                                    isSpeaking = isSpeaking,
-                                    liveTranscript = liveTranscript,
-                                    lastResponse = lastResponse,
-                                    speechSupported = speechSupported,
-                                    voiceRmsDb = voiceRmsDb,
-                                    isContinuousModeActive = isContinuousConversationActive,
-                                    isMicMuted = isMicMuted,
-                                    isSpeakerEnabled = isSpeakerEnabled,
-                                    isDarkTheme = isDarkTheme,
-                                    onStartListening = {
-                                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    },
-                                    onStopListening = { viewModel.stopListening() },
-                                    onSpeakText = { text, rate, pitch ->
-                                        viewModel.speakText(text, rate, pitch)
-                                    },
-                                    onStopSpeaking = { viewModel.stopSpeaking() },
-                                    onToggleContinuousMode = { viewModel.toggleContinuousConversation() },
-                                    onToggleMicMute = { viewModel.toggleMicMute() },
-                                    onToggleSpeaker = { viewModel.toggleSpeaker() },
-                                    onInterruptAndListen = { viewModel.interruptAndListen() },
-                                    onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
-                                    onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
-                                    onCloseVoiceMode = { viewModel.setTab(NavTab.CHAT) }
-                                )
+                                NavTab.DEVICES -> {
+                                    DevicesScreen(
+                                        telemetry = telemetry,
+                                        deviceTilt = deviceTilt,
+                                        onRefreshTelemetry = { viewModel.bridge.refreshTelemetry() },
+                                        onToggleFlashlight = { viewModel.toggleFlashlight(it) },
+                                        onOpenSystemSettings = { viewModel.openAndroidSettings(it ?: "general") },
+                                        onLaunchApp = { pkg ->
+                                            if (pkg == "camera") {
+                                                viewModel.bridge.openCameraApp()
+                                            } else if (pkg == "maps") {
+                                                viewModel.bridge.openMapsApp("Current Location")
+                                            } else {
+                                                viewModel.bridge.launchApp(pkg)
+                                            }
+                                        }
+                                    )
+                                }
 
-                                NavTab.TASKS -> TasksScreen(
-                                    tasks = tasks,
-                                    timers = timers,
-                                    onToggleTask = { viewModel.repository.toggleTask(it) },
-                                    onDeleteTask = { viewModel.repository.deleteTask(it) },
-                                    onAddTask = { title, notes, priority ->
-                                        viewModel.repository.addTask(title, notes, priority)
-                                    },
-                                    onAddTimer = { label, seconds ->
-                                        viewModel.repository.addTimer(label, seconds)
-                                    },
-                                    onDeleteTimer = { viewModel.repository.deleteTimer(it) },
-                                    onUpdateTimer = { id, remaining, running ->
-                                        viewModel.repository.updateTimer(id, remaining, running)
-                                    }
-                                )
+                                NavTab.SKILLS -> {
+                                    SkillsScreen(
+                                        onOpenSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
+                                        onOpenVision = { viewModel.openSubScreen(SubScreen.VISION) },
+                                        onOpenCodeStudio = { viewModel.openSubScreen(SubScreen.CODE_STUDIO) },
+                                        onOpenVoiceNotes = { viewModel.openSubScreen(SubScreen.VOICE_NOTES) },
+                                        onOpenTimers = { viewModel.openSubScreen(SubScreen.TIMER_STOPWATCH) },
+                                        onOpenTasks = { viewModel.openSubScreen(SubScreen.TASKS) },
+                                        onOpenExpenses = { viewModel.openSubScreen(SubScreen.EXPENSES) },
+                                        onOpenHabits = { viewModel.openSubScreen(SubScreen.HABITS) },
+                                        onOpenArmorThemes = { viewModel.openSubScreen(SubScreen.ARMOR_THEMES) },
+                                        onOpenPrivacy = { viewModel.openSubScreen(SubScreen.PRIVACY) },
+                                        onOpenAutomation = { viewModel.openSubScreen(SubScreen.AUTOMATION) },
+                                        onOpenMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
+                                        onVoiceCommand = { viewModel.sendUserMessage(it) }
+                                    )
+                                }
 
-                                NavTab.SETTINGS -> SettingsScreen(
-                                    currentSettings = settings,
-                                    onSaveSettings = { viewModel.repository.updateSettings(it) },
-                                    isDarkTheme = isDarkTheme,
-                                    selectedAccentColor = selectedAccentColor,
-                                    onToggleDarkTheme = { isDarkTheme = it },
-                                    onSelectAccentColor = { selectedAccentColor = it },
-                                    onNavigatePrivacy = { viewModel.openSubScreen(SubScreen.PRIVACY) },
-                                    onNavigateMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
-                                    onNavigateBridge = { viewModel.openSubScreen(SubScreen.BRIDGE) },
-                                    onNavigateActivity = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
-                                    onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
-                                    onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
-                                    onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
-                                    onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
-                                    onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
-                                    onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
-                                    onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
-                                    onNavigatePlugins = { viewModel.openSubScreen(SubScreen.PLUGINS) },
-                                    onNavigateBackup = { viewModel.openSubScreen(SubScreen.BACKUP_EXPORT) },
-                                    onLogout = {
-                                        viewModel.authManager.signOut()
-                                    },
-                                    onNavigateBack = {
-                                        viewModel.setTab(NavTab.CHAT)
-                                    }
-                                )
+                                NavTab.SETTINGS -> {
+                                    SettingsScreen(
+                                        currentSettings = settings,
+                                        onSaveSettings = { viewModel.repository.updateSettings(it) },
+                                        isDarkTheme = true,
+                                        selectedAccentColor = JarvisCyan,
+                                        onToggleDarkTheme = { },
+                                        onSelectAccentColor = { },
+                                        onNavigatePrivacy = { viewModel.openSubScreen(SubScreen.PRIVACY) },
+                                        onNavigateMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
+                                        onNavigateBridge = { viewModel.setTab(NavTab.DEVICES) },
+                                        onNavigateActivity = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
+                                        onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
+                                        onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
+                                        onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
+                                        onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
+                                        onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
+                                        onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
+                                        onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
+                                        onNavigatePlugins = { viewModel.openSubScreen(SubScreen.PLUGINS) },
+                                        onNavigateBackup = { viewModel.openSubScreen(SubScreen.BACKUP_EXPORT) },
+                                        onLogout = {
+                                            viewModel.authManager.signOut()
+                                        },
+                                        onNavigateBack = {
+                                            viewModel.setTab(NavTab.HOME)
+                                        }
+                                    )
+                                }
                             }
                         }
 
