@@ -176,7 +176,7 @@ fun HolographicCoreHero(
 
                 Text(
                     text = when (state) {
-                        JarvisState.IDLE -> "JARVIS 2.0 // OPERATIONAL"
+                        JarvisState.IDLE -> "JARVIS // ONLINE"
                         JarvisState.LISTENING -> "AUDIO MATRIX // LISTENING..."
                         JarvisState.THINKING -> "NEURAL CORE // PROCESSING..."
                         JarvisState.SPEAKING -> "VOCAL SYNTH // TRANSMITTING"

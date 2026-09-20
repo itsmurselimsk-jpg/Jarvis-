@@ -247,7 +247,7 @@ fun VoiceScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Ask ChatGPT",
+                        text = "Ask JARVIS",
                         fontSize = 15.sp,
                         color = textSecondary
                     )

@@ -79,6 +79,7 @@ import com.example.jarvis.ui.screens.VoiceSetupScreen
 import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorderSubtle
 import com.example.jarvis.ui.theme.JarvisCyan
+import com.example.jarvis.ui.theme.JarvisCyanBright
 import com.example.jarvis.ui.theme.JarvisTextSecondary
 import kotlinx.coroutines.launch
 
@@ -165,10 +166,12 @@ fun JarvisApp(
                         )
                     }
                     Text(
-                        text = "ChatGPT",
+                        text = "JARVIS",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isDarkTheme) Color.White else Color(0xFF111827)
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 4.sp,
+                        color = JarvisCyanBright
                     )
                     Text(
                         text = "Connecting to Neural Core...",
@@ -220,7 +223,7 @@ fun JarvisApp(
                 gesturesEnabled = activeSubScreen == null,
                 drawerContent = {
                     ModalDrawerSheet(
-                        drawerContainerColor = if (isDarkTheme) Color(0xFF171717) else Color(0xFFFFFFFF),
+                        drawerContainerColor = Color(0xFF070F1E),
                         drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
                     ) {
                         ChatGPTDrawer(
