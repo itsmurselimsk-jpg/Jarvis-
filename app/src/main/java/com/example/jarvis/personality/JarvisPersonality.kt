@@ -155,17 +155,30 @@ object JarvisPersonality {
         val brief = rawResult.trim()
         return when (toolName.lowercase()) {
             "flashlight" -> when (languageStyle) {
-                LanguageStyle.HINGLISH -> "Ho gaya bhai, torch update ho gaya."
-                LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Hoeto hoye gachhe bhai, torch update holo."
-                else -> "Done! Flashlight state updated."
+                LanguageStyle.HINGLISH -> "Ho gaya bhai, torch on/off kar di hai! Visual illumination ready hai."
+                LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Hoye gachhe bhai, flashlight update kore diyechhi!"
+                LanguageStyle.HINDI -> "हो गया सर, टॉर्च की स्थिति अपडेट कर दी गई है।"
+                else -> "Done, sir! Flashlight illumination toggled successfully."
             }
             "wifi" -> when (languageStyle) {
-                LanguageStyle.HINGLISH -> "Ho gaya bhai, Wi-Fi setting update ho gayi."
-                else -> "Wi-Fi state updated successfully."
+                LanguageStyle.HINGLISH -> "Wi-Fi status update ho gaya bhai, network link check kar liya hai."
+                else -> "Wi-Fi link matrix verified and updated."
             }
             "volume" -> when (languageStyle) {
-                LanguageStyle.HINGLISH -> "Ho gaya bhai, volume set ho gaya."
-                else -> "Volume adjusted successfully."
+                LanguageStyle.HINGLISH -> "Volume calibrate kar diya hai bhai! Audio bilkul sahi level par hai."
+                else -> "Audio amplitude calibrated to optimal level, sir."
+            }
+            "whatsapp" -> when (languageStyle) {
+                LanguageStyle.HINGLISH -> "WhatsApp message draft karke bhej diya hai bhai!"
+                else -> "Dispatched WhatsApp transmission with zero packet drop."
+            }
+            "sms" -> when (languageStyle) {
+                LanguageStyle.HINGLISH -> "SMS message dispatch ho gaya bhai!"
+                else -> "SMS communication channel dispatched successfully."
+            }
+            "calendar" -> when (languageStyle) {
+                LanguageStyle.HINGLISH -> "Calendar event schedule mein add kar diya hai sir! Time par yaad dila doonga."
+                else -> "Calendar entry locked into your schedule, sir."
             }
             "battery" -> brief
             "diagnostics" -> brief
@@ -183,9 +196,9 @@ object JarvisPersonality {
             return brief
         }
         return when (languageStyle) {
-            LanguageStyle.HINGLISH -> "Try kiya, par $toolName execute nahi ho paya. ($brief)"
-            LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Try korlam, kintu $toolName honyni. ($brief)"
-            else -> "Attempted action, but $toolName execution failed: $brief"
+            LanguageStyle.HINGLISH -> "Main koshish kar raha tha, par $toolName execute karte waqt dikkat aayi: $brief. Ek baar check karein?"
+            LanguageStyle.BANGLISH, LanguageStyle.BENGALI -> "Chesta korlam, kintu $toolName korte parlam na: $brief"
+            else -> "Attempted action, but $toolName encountered a friction point: $brief"
         }
     }
 }

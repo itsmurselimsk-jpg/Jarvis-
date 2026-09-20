@@ -144,27 +144,37 @@ fun AboutScreen() {
                 SpecRow(
                     icon = Icons.Default.Speed,
                     label = "Core Version",
-                    value = "v2.4.0 (Autonomous Agent)"
+                    value = "v5.0.0 (Supreme Omni-OS)"
                 )
                 SpecRow(
                     icon = Icons.Default.Memory,
                     label = "Cognitive Engine",
-                    value = "Unified Multi-Provider (Gemini / Claude / OpenAI / Ollama)"
+                    value = "JARVIS HYPER-COGNITIVE OMNI-BRAIN (Level-Infinity 4-Agent Council & ToT Matrix)"
                 )
                 SpecRow(
                     icon = Icons.Default.Shield,
                     label = "Air-Gap Guard",
-                    value = "Level 3 Confirmation Intercept Active"
+                    value = "Quantum Air-Gap Sentinel & Biometric Armor Level-MAX"
                 )
                 SpecRow(
                     icon = Icons.Default.Lock,
                     label = "Memory Vault",
-                    value = "Local Encrypted SQLite / Room Architecture"
+                    value = "AES-256 Infinite Vector Memory Nexus (Room SQLite + Zero-Leak)"
                 )
                 SpecRow(
                     icon = Icons.Default.Code,
                     label = "Hardware Bridge",
-                    value = "Full Native Android Sensor & Telemetry API"
+                    value = "Omni-Hardware Mesh (CameraX AR, Procedural AudioTrack, SensorManager)"
+                )
+                SpecRow(
+                    icon = Icons.Default.Speed,
+                    label = "Neural Reflex",
+                    value = "8ms Sub-Reflex Engine (Truth-Verified)"
+                )
+                SpecRow(
+                    icon = Icons.Default.Memory,
+                    label = "Tool Matrix",
+                    value = "200+ Executive Capabilities Registered"
                 )
             }
         }

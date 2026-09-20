@@ -136,9 +136,16 @@ fun TopBar(
             // Right: Telemetry Badges (Battery, Network, Chrono)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Network badge
+                val netLabel = when {
+                    telemetry.networkType.contains("WIFI", ignoreCase = true) -> "WiFi"
+                    telemetry.networkType.contains("CELL", ignoreCase = true) || telemetry.networkType.contains("MOBILE", ignoreCase = true) -> "5G"
+                    telemetry.networkType.contains("OFFLINE", ignoreCase = true) -> "OFF"
+                    else -> telemetry.networkType.take(4)
+                }
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -147,13 +154,14 @@ fun TopBar(
                         imageVector = Icons.Default.Wifi,
                         contentDescription = "Network",
                         tint = JarvisCyan,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = telemetry.networkType.take(6),
+                        text = netLabel,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = JarvisTextSecondary
+                        color = JarvisTextSecondary,
+                        maxLines = 1
                     )
                 }
 
@@ -166,13 +174,14 @@ fun TopBar(
                         imageVector = if (telemetry.isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryFull,
                         contentDescription = "Battery",
                         tint = if (telemetry.batteryPercent <= 20) Color(0xFFFF5252) else JarvisCyan,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Text(
                         text = "${telemetry.batteryPercent}%",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = JarvisTextSecondary
+                        color = JarvisTextSecondary,
+                        maxLines = 1
                     )
                 }
 
@@ -182,21 +191,23 @@ fun TopBar(
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium,
-                    color = JarvisCyanBright
+                    color = JarvisCyanBright,
+                    maxLines = 1,
+                    softWrap = false
                 )
 
                 // Operator Profile Icon Button
                 IconButton(
                     onClick = onProfileClick,
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(26.dp)
                         .testTag("top_bar_profile_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = "Operator Profile",
                         tint = JarvisCyan,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
