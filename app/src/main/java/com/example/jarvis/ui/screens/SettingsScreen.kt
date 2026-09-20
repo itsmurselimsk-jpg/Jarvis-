@@ -15,487 +15,523 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.FamilyRestroom
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.jarvis.model.AIProviderType
 import com.example.jarvis.model.ProviderSettings
-import com.example.jarvis.ui.theme.JarvisBackground
-import com.example.jarvis.ui.theme.JarvisBorder
-import com.example.jarvis.ui.theme.JarvisBorderSubtle
-import com.example.jarvis.ui.theme.JarvisCyan
-import com.example.jarvis.ui.theme.JarvisCyanBright
-import com.example.jarvis.ui.theme.JarvisElectricBlue
-import com.example.jarvis.ui.theme.JarvisGreen
-import com.example.jarvis.ui.theme.JarvisTextDim
-import com.example.jarvis.ui.theme.JarvisTextPrimary
-import com.example.jarvis.ui.theme.JarvisTextSecondary
 
 @Composable
 fun SettingsScreen(
     currentSettings: ProviderSettings,
-    onSaveSettings: (ProviderSettings) -> Unit,
-    onNavigatePrivacy: () -> Unit,
-    onNavigateMemory: () -> Unit,
-    onNavigateBridge: () -> Unit,
-    onNavigateActivity: () -> Unit,
-    onNavigateVision: () -> Unit,
+    onSaveSettings: (ProviderSettings) -> Unit = {},
+    isDarkTheme: Boolean = false,
+    selectedAccentColor: Color = Color(0xFF2563EB),
+    onToggleDarkTheme: (Boolean) -> Unit = {},
+    onSelectAccentColor: (Color) -> Unit = {},
+    onNavigatePrivacy: () -> Unit = {},
+    onNavigateMemory: () -> Unit = {},
+    onNavigateBridge: () -> Unit = {},
+    onNavigateActivity: () -> Unit = {},
+    onNavigateVision: () -> Unit = {},
     onNavigateVoiceSetup: () -> Unit = {},
     onNavigateVoiceProfiles: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     onNavigateDiagnostics: () -> Unit = {},
     onNavigateNotifications: () -> Unit = {},
     onNavigateSearch: () -> Unit = {},
-    onNavigatePlugins: () -> Unit = {}
+    onNavigatePlugins: () -> Unit = {},
+    onNavigateBackup: () -> Unit = {},
+    onLogout: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
-    var providerType by remember { mutableStateOf(currentSettings.providerType) }
-    var customApiKey by remember { mutableStateOf(currentSettings.customApiKey) }
-    var customEndpoint by remember { mutableStateOf(currentSettings.customEndpoint) }
-    var selectedModel by remember { mutableStateOf(currentSettings.selectedModel) }
-    var systemPrompt by remember { mutableStateOf(currentSettings.systemPrompt) }
-    var autoSpeak by remember { mutableStateOf(currentSettings.autoSpeakResponses) }
-    var speechRate by remember { mutableFloatStateOf(currentSettings.speechRate) }
-    var speechPitch by remember { mutableFloatStateOf(currentSettings.speechPitch) }
-    var showSavedNotice by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showAppearanceDropdown by remember { mutableStateOf(false) }
+    var showAccentDropdown by remember { mutableStateOf(false) }
 
-    LazyColumn(
+    val bg = if (isDarkTheme) Color(0xFF171717) else Color(0xFFF3F4F6)
+    val cardBg = if (isDarkTheme) Color(0xFF262626) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDarkTheme) Color(0xFFECECF1) else Color(0xFF0D0D0D)
+    val textSecondary = if (isDarkTheme) Color(0xFF9E9E9E) else Color(0xFF707070)
+    val dividerColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFF0F0F0)
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(JarvisBackground),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(bg)
     ) {
-        item {
-            Column {
-                Text(
-                    text = "JARVIS SYSTEM SETTINGS",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.2.sp,
-                    color = JarvisCyan
-                )
-                Text(
-                    text = "Core parameters, vocal synthesizer, and security enclaves",
-                    fontSize = 11.sp,
-                    color = JarvisTextSecondary
-                )
-            }
-        }
-
-        // ==========================================
-        // 1. AI Provider & Neural Engine Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "AI / PROVIDER & NEURAL ENGINE") {
-                // Provider Selection Pills
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Top Navigation & Profile Header
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AIProviderType.values().forEach { type ->
-                        val isSelected = type == providerType
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(cardBg)
+                            .clickable { onNavigateBack() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Profile Avatar with edit badge
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(contentAlignment = Alignment.BottomEnd) {
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) JarvisCyan.copy(alpha = 0.18f) else Color(0xFF0C1422))
-                                .border(1.dp, if (isSelected) JarvisCyan else JarvisBorderSubtle, RoundedCornerShape(10.dp))
-                                .clickable { providerType = type }
-                                .padding(vertical = 10.dp),
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(selectedAccentColor),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = when (type) {
-                                    AIProviderType.GEMINI -> "GEMINI"
-                                    AIProviderType.OPENAI_COMPATIBLE -> "OPENAI"
-                                    AIProviderType.LOCAL_NEURAL_BRAIN -> "ON-DEVICE"
-                                },
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) JarvisCyanBright else JarvisTextSecondary
+                                text = "IM",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        // Edit pen badge
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(cardBg)
+                                .border(1.5.dp, bg, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Profile",
+                                tint = textPrimary,
+                                modifier = Modifier.size(12.dp)
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "ITS MUSAROF",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimary,
+                        letterSpacing = 0.5.sp
+                    )
                 }
+            }
 
-                // Selected Model Tag
-                OutlinedTextField(
-                    value = selectedModel,
-                    onValueChange = { selectedModel = it },
-                    label = { Text("Model Tag", color = JarvisTextSecondary, fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = JarvisCyan,
-                        unfocusedBorderColor = JarvisBorder,
-                        focusedTextColor = JarvisTextPrimary,
-                        unfocusedTextColor = JarvisTextPrimary,
-                        cursorColor = JarvisCyan
-                    ),
-                    singleLine = true
-                )
+            // Section: My ChatGPT / My JARVIS
+            item {
+                SectionHeader(title = "My ChatGPT", textColor = textSecondary)
+                InsetCardGroup(cardBg = cardBg, dividerColor = dividerColor) {
+                    SettingsRowItem(
+                        icon = Icons.Default.SentimentSatisfiedAlt,
+                        title = "Personalization",
+                        textColor = textPrimary,
+                        onClick = onNavigateVoiceProfiles
+                    )
+                    SettingsRowItem(
+                        icon = Icons.AutoMirrored.Filled.MenuBook,
+                        title = "Memory",
+                        textColor = textPrimary,
+                        onClick = onNavigateMemory
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.Extension,
+                        title = "Plugins",
+                        textColor = textPrimary,
+                        onClick = onNavigatePlugins
+                    )
+                }
+            }
 
-                // Custom API Key
-                OutlinedTextField(
-                    value = customApiKey,
-                    onValueChange = { customApiKey = it },
-                    label = { Text("Custom API Key (Overrides runtime env)", color = JarvisTextSecondary, fontSize = 11.sp) },
-                    placeholder = { Text("Enter key...", color = JarvisTextDim, fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = JarvisCyan,
-                        unfocusedBorderColor = JarvisBorder,
-                        focusedTextColor = JarvisTextPrimary,
-                        unfocusedTextColor = JarvisTextPrimary,
-                        cursorColor = JarvisCyan
-                    ),
-                    singleLine = true
-                )
+            // Section: Account
+            item {
+                SectionHeader(title = "Account", textColor = textSecondary)
+                InsetCardGroup(cardBg = cardBg, dividerColor = dividerColor) {
+                    SettingsRowItem(
+                        icon = Icons.Default.ShoppingBag,
+                        title = "Workspace",
+                        subtitle = "Personal",
+                        textColor = textPrimary,
+                        subTextColor = textSecondary,
+                        onClick = {}
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.AutoAwesome,
+                        title = "Upgrade plan",
+                        subtitle = "ChatGPT Plus / Stark Pro",
+                        textColor = textPrimary,
+                        subTextColor = selectedAccentColor,
+                        onClick = {}
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.Speed,
+                        title = "Usage and limits",
+                        textColor = textPrimary,
+                        onClick = onNavigateDiagnostics
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.FamilyRestroom,
+                        title = "Parental controls",
+                        textColor = textPrimary,
+                        onClick = onNavigatePrivacy
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.Email,
+                        title = "Email",
+                        subtitle = "itsmusarof@gmail.com",
+                        textColor = textPrimary,
+                        subTextColor = textSecondary,
+                        onClick = {}
+                    )
+                    SettingsRowItem(
+                        icon = Icons.Default.AccountCircle,
+                        title = "Age verification",
+                        textColor = textPrimary,
+                        onClick = {}
+                    )
+                }
+            }
 
-                // Helpful guidance note
+            // Section: Appearance & Accent color
+            item {
+                InsetCardGroup(cardBg = cardBg, dividerColor = dividerColor) {
+                    // Appearance (Theme)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAppearanceDropdown = !showAppearanceDropdown }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Icon(Icons.Default.WbSunny, contentDescription = null, tint = textPrimary, modifier = Modifier.size(20.dp))
+                                Text("Appearance", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textPrimary)
+                            }
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = textSecondary)
+                        }
+
+                        if (showAppearanceDropdown) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val themes = listOf("System", "Light", "Dark")
+                                themes.forEach { t ->
+                                    val isSelected = (t == "Dark" && isDarkTheme) || (t == "Light" && !isDarkTheme)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) selectedAccentColor else bg)
+                                            .clickable { onToggleDarkTheme(t == "Dark") }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(t, fontSize = 13.sp, color = if (isSelected) Color.White else textPrimary, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Accent Color
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAccentDropdown = !showAccentDropdown }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Icon(Icons.Default.Palette, contentDescription = null, tint = textPrimary, modifier = Modifier.size(20.dp))
+                                Column {
+                                    Text("Accent color", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textPrimary)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(selectedAccentColor)
+                                        )
+                                        Text("Blue", fontSize = 12.sp, color = textSecondary)
+                                    }
+                                }
+                            }
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = textSecondary)
+                        }
+
+                        if (showAccentDropdown) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                val colors = listOf(
+                                    Color(0xFF2563EB), // Blue
+                                    Color(0xFF10A37F), // Emerald / ChatGPT Green
+                                    Color(0xFF8B5CF6), // Purple
+                                    Color(0xFFF59E0B), // Amber
+                                    Color(0xFFEF4444)  // Coral
+                                )
+                                colors.forEach { c ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(c)
+                                            .clickable { onSelectAccentColor(c) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (c == selectedAccentColor) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section: General Controls
+            item {
+                InsetCardGroup(cardBg = cardBg, dividerColor = dividerColor) {
+                    SettingsRowItem(icon = Icons.Default.Settings, title = "General", textColor = textPrimary, onClick = onNavigateBridge)
+                    SettingsRowItem(icon = Icons.Default.Notifications, title = "Notifications", textColor = textPrimary, onClick = onNavigateNotifications)
+                    SettingsRowItem(icon = Icons.Default.GraphicEq, title = "Voice", textColor = textPrimary, onClick = onNavigateVoiceSetup)
+                    SettingsRowItem(icon = Icons.Default.Security, title = "Safety & wellbeing", textColor = textPrimary, onClick = onNavigatePrivacy)
+                    SettingsRowItem(icon = Icons.Default.Lock, title = "Security and login", textColor = textPrimary, onClick = onNavigatePrivacy)
+                    SettingsRowItem(icon = Icons.Default.Computer, title = "Remote control", textColor = textPrimary, onClick = onNavigateBridge)
+                    SettingsRowItem(icon = Icons.Default.Storage, title = "Storage", textColor = textPrimary, onClick = onNavigateBackup)
+                    SettingsRowItem(icon = Icons.Default.Storage, title = "Data controls", textColor = textPrimary, onClick = onNavigateBackup)
+                    SettingsRowItem(icon = Icons.Default.Notifications, title = "Ads controls", textColor = textPrimary, onClick = {})
+                    SettingsRowItem(icon = Icons.Default.BugReport, title = "Report bug", textColor = textPrimary, onClick = onNavigateDiagnostics)
+                    SettingsRowItem(icon = Icons.Default.Info, title = "About", textColor = textPrimary, onClick = onNavigateAbout)
+                }
+            }
+
+            // Section: Log Out Button
+            item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF07111D))
-                        .border(0.5.dp, JarvisCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                        .padding(10.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .clickable { onLogout() }
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
                 ) {
-                    Text(
-                        text = if (providerType == AIProviderType.OPENAI_COMPATIBLE) {
-                            "💡 Tip: Enter your OpenAI API key (platform.openai.com) to talk directly to ChatGPT models (gpt-4o, gpt-4o-mini)."
-                        } else {
-                            "💡 Tip: Get a free Gemini key from aistudio.google.com and paste it here to unlock full ChatGPT-level intelligence and comprehension!"
-                        },
-                        fontSize = 11.sp,
-                        color = JarvisTextSecondary,
-                        lineHeight = 15.sp
-                    )
-                }
-
-                if (providerType == AIProviderType.OPENAI_COMPATIBLE) {
-                    OutlinedTextField(
-                        value = customEndpoint,
-                        onValueChange = { customEndpoint = it },
-                        label = { Text("Custom Base URL", color = JarvisTextSecondary, fontSize = 11.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = JarvisCyan,
-                            unfocusedBorderColor = JarvisBorder,
-                            focusedTextColor = JarvisTextPrimary,
-                            unfocusedTextColor = JarvisTextPrimary,
-                            cursorColor = JarvisCyan
-                        ),
-                        singleLine = true
-                    )
-                }
-
-                // System Prompt Directive
-                OutlinedTextField(
-                    value = systemPrompt,
-                    onValueChange = { systemPrompt = it },
-                    label = { Text("JARVIS System Directive & Persona", color = JarvisTextSecondary, fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = JarvisCyan,
-                        unfocusedBorderColor = JarvisBorder,
-                        focusedTextColor = JarvisTextPrimary,
-                        unfocusedTextColor = JarvisTextPrimary,
-                        cursorColor = JarvisCyan
-                    ),
-                    maxLines = 4
-                )
-            }
-        }
-
-        // ==========================================
-        // 2. Voice & Audio Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "VOICE & AUDIO CALIBRATION") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Auto-Speak AI Responses", fontSize = 13.sp, color = JarvisTextPrimary)
-                        Text("Vocalize text responses automatically", fontSize = 10.sp, color = JarvisTextDim)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = "Log out",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Log out",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFEF4444)
+                        )
                     }
-
-                    Switch(
-                        checked = autoSpeak,
-                        onCheckedChange = { autoSpeak = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = JarvisCyan,
-                            checkedTrackColor = JarvisCyan.copy(alpha = 0.3f),
-                            uncheckedThumbColor = JarvisTextDim,
-                            uncheckedTrackColor = Color(0xFF162032)
-                        )
-                    )
                 }
-
-                // Rate Slider
-                Column {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Speech Rate", fontSize = 12.sp, color = JarvisTextSecondary)
-                        Text("${String.format("%.1f", speechRate)}x", fontSize = 12.sp, color = JarvisCyan, fontFamily = FontFamily.Monospace)
-                    }
-                    Slider(
-                        value = speechRate,
-                        onValueChange = { speechRate = it },
-                        valueRange = 0.5f..2.0f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = JarvisCyan,
-                            activeTrackColor = JarvisCyan,
-                            inactiveTrackColor = Color(0xFF1E293B)
-                        )
-                    )
-                }
-
-                // Pitch Slider
-                Column {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Vocal Modulation Pitch", fontSize = 12.sp, color = JarvisTextSecondary)
-                        Text("${String.format("%.1f", speechPitch)}x", fontSize = 12.sp, color = JarvisCyan, fontFamily = FontFamily.Monospace)
-                    }
-                    Slider(
-                        value = speechPitch,
-                        onValueChange = { speechPitch = it },
-                        valueRange = 0.5f..1.5f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = JarvisCyan,
-                            activeTrackColor = JarvisCyan,
-                            inactiveTrackColor = Color(0xFF1E293B)
-                        )
-                    )
-                }
-
-                SubmoduleNavigationRow("Acoustic Wake Engine ('Hey JARVIS')", Icons.Default.Mic, onNavigateVoiceSetup)
-                SubmoduleNavigationRow("Vocal Profiles & Modulation Tuning", Icons.Default.RecordVoiceOver, onNavigateVoiceProfiles)
             }
         }
 
-        // ==========================================
-        // 3. Memory & Context Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "MEMORY & CONTEXT ENCLAVE") {
-                SubmoduleNavigationRow("Neural Memory Index & Records", Icons.Default.Psychology, onNavigateMemory)
-                SubmoduleNavigationRow("Privacy & Local Memory Shield", Icons.Default.Security, onNavigatePrivacy)
-            }
-        }
-
-        // ==========================================
-        // 4. Permissions & Privacy Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "PERMISSIONS & SECURITY") {
-                SubmoduleNavigationRow("Security Clearance & Zero-Leak Enclave", Icons.Default.Security, onNavigatePrivacy)
-                SubmoduleNavigationRow("Hardware Access Permissions", Icons.Default.Bolt, onNavigateBridge)
-            }
-        }
-
-        // ==========================================
-        // 5. System Tools & Diagnostics Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "SYSTEM TOOLS & PLUGINS") {
-                SubmoduleNavigationRow("Connected Services & Plugin Vault", Icons.Default.Build, onNavigatePlugins)
-                SubmoduleNavigationRow("Universal Phone Search", Icons.Default.Search, onNavigateSearch)
-                SubmoduleNavigationRow("Optical Vision HUD & OCR", Icons.Default.Visibility, onNavigateVision)
-                SubmoduleNavigationRow("Hardware Telemetry Bridge", Icons.Default.Bolt, onNavigateBridge)
-                SubmoduleNavigationRow("Smart Notification Intelligence", Icons.Default.Notifications, onNavigateNotifications)
-                SubmoduleNavigationRow("System Self-Diagnostics", Icons.Default.Build, onNavigateDiagnostics)
-            }
-        }
-
-        // ==========================================
-        // 6. About / Info Section
-        // ==========================================
-        item {
-            SettingsCategoryCard(title = "ABOUT & SYSTEM TELEMETRY") {
-                SubmoduleNavigationRow("System Activity Logs", Icons.Default.History, onNavigateActivity)
-                SubmoduleNavigationRow("About JARVIS & Architecture Specs", Icons.Default.Info, onNavigateAbout)
-            }
-        }
-
-        // ==========================================
-        // Save Parameters Action Button
-        // ==========================================
-        item {
-            Button(
-                onClick = {
-                    onSaveSettings(
-                        ProviderSettings(
-                            providerType = providerType,
-                            customApiKey = customApiKey,
-                            customEndpoint = customEndpoint,
-                            selectedModel = selectedModel,
-                            systemPrompt = systemPrompt,
-                            autoSpeakResponses = autoSpeak,
-                            speechRate = speechRate,
-                            speechPitch = speechPitch
-                        )
-                    )
-                    showSavedNotice = true
-                },
+        // Fixed Floating Bottom Search Capsule (Matching Screenshot 1 & 2)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_settings_button"),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = JarvisCyan,
-                    contentColor = Color.Black
-                )
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(cardBg)
+                    .clickable { onNavigateSearch() }
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "APPLY & SAVE PARAMETERS",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search settings",
+                    tint = textSecondary,
+                    modifier = Modifier.size(18.dp)
                 )
-            }
-
-            AnimatedVisibility(visible = showSavedNotice) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF091F18))
-                        .border(1.dp, JarvisGreen, RoundedCornerShape(8.dp))
-                        .padding(10.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = JarvisGreen,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text(
-                        text = "Parameters synchronized with JARVIS Core.",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = JarvisGreen
-                    )
-                }
+                Text(
+                    text = "Search settings",
+                    fontSize = 14.sp,
+                    color = textSecondary
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SettingsCategoryCard(
-    title: String,
+private fun SectionHeader(title: String, textColor: Color) {
+    Text(
+        text = title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        color = textColor,
+        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+    )
+}
+
+@Composable
+private fun InsetCardGroup(
+    cardBg: Color,
+    dividerColor: Color,
     content: @Composable () -> Unit
 ) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF0B1424),
-                        Color(0xFF060B14)
-                    )
-                )
-            )
-            .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(14.dp))
-            .padding(16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(cardBg)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                text = title,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp,
-                color = JarvisCyan
-            )
-            content()
-        }
+        content()
     }
 }
 
 @Composable
-private fun SubmoduleNavigationRow(
-    title: String,
+private fun SettingsRowItem(
     icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    textColor: Color,
+    subTextColor: Color = Color.Gray,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF08101E))
-            .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = JarvisCyan, modifier = Modifier.size(18.dp))
-            Text(text = title, fontSize = 12.sp, color = JarvisTextPrimary)
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = textColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = textColor
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = subTextColor
+                )
+            }
         }
-        Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = JarvisTextDim, modifier = Modifier.size(18.dp))
     }
 }

@@ -541,6 +541,7 @@ class JarvisRepository(private val context: Context) {
             db.memoryDao().clearAllMemories()
             db.taskDao().clearAllTasks()
             db.notificationDao().clearAllNotifications()
+            db.expenseDao().clearAllExpenses()
             prefs.edit().clear().apply()
             _messages.value = emptyList()
             _memories.value = emptyList()
@@ -550,5 +551,67 @@ class JarvisRepository(private val context: Context) {
             _visionScans.value = emptyList()
         }
         logActivity("Complete Data Wipe", "All preferences, Room DB, and logs purged.", ActivityType.SAFETY_ALERT, RiskLevel.RESTRICTED)
+    }
+
+    // ==========================================
+    // EXPENSE & FINANCIAL BUDGET REPOSITORY
+    // ==========================================
+    val expensesFlow: kotlinx.coroutines.flow.Flow<List<com.example.jarvis.storage.db.ExpenseEntity>> =
+        db.expenseDao().getAllExpenses()
+
+    fun addExpense(title: String, amount: Double, category: String = "General", notes: String = "") {
+        val entity = com.example.jarvis.storage.db.ExpenseEntity(
+            title = title,
+            amount = amount,
+            category = category,
+            notes = notes
+        )
+        scope.launch {
+            db.expenseDao().insertExpense(entity)
+        }
+        logActivity("Expense Recorded", "₹$amount for $title ($category)", ActivityType.TASK_EVENT)
+    }
+
+    fun deleteExpense(expense: com.example.jarvis.storage.db.ExpenseEntity) {
+        scope.launch {
+            db.expenseDao().deleteExpense(expense)
+        }
+        logActivity("Expense Removed", "Deleted: ${expense.title}", ActivityType.TASK_EVENT)
+    }
+
+    // ==========================================
+    // HABIT & STREAK REPOSITORY
+    // ==========================================
+    val habitsFlow: kotlinx.coroutines.flow.Flow<List<com.example.jarvis.storage.db.HabitEntity>> =
+        db.habitDao().getAllHabits()
+
+    fun addHabit(name: String, targetDays: Int = 7) {
+        val entity = com.example.jarvis.storage.db.HabitEntity(
+            name = name,
+            streakDays = 1,
+            targetDaysPerWeek = targetDays
+        )
+        scope.launch {
+            db.habitDao().insertHabit(entity)
+        }
+        logActivity("Habit Created", name, ActivityType.TASK_EVENT)
+    }
+
+    fun completeHabitToday(habit: com.example.jarvis.storage.db.HabitEntity) {
+        val updated = habit.copy(
+            streakDays = habit.streakDays + 1,
+            lastCompletedDateMillis = System.currentTimeMillis()
+        )
+        scope.launch {
+            db.habitDao().updateHabit(updated)
+        }
+        logActivity("Habit Checked-In", "${habit.name} 🔥 Streak: ${updated.streakDays} Days", ActivityType.TASK_EVENT)
+    }
+
+    fun deleteHabit(id: String) {
+        scope.launch {
+            db.habitDao().deleteHabitById(id)
+        }
+        logActivity("Habit Removed", id, ActivityType.TASK_EVENT)
     }
 }

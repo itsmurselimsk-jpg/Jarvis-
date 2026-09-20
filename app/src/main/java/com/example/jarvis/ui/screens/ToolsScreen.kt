@@ -73,6 +73,11 @@ import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
 import kotlinx.coroutines.launch
 
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Palette
+
 data class ToolCategoryNav(
     val title: String,
     val icon: ImageVector,
@@ -89,6 +94,10 @@ fun ToolsScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val subNavItems = listOf(
+        ToolCategoryNav("Armor Themes", Icons.Default.Palette) { onOpenSubScreen(SubScreen.ARMOR_THEMES) },
+        ToolCategoryNav("Expense Vault", Icons.Default.AccountBalanceWallet) { onOpenSubScreen(SubScreen.EXPENSES) },
+        ToolCategoryNav("Habit Tracker", Icons.Default.LocalFireDepartment) { onOpenSubScreen(SubScreen.HABITS) },
+        ToolCategoryNav("Code REPL", Icons.Default.Code) { onOpenSubScreen(SubScreen.CODE_STUDIO) },
         ToolCategoryNav("Chat", Icons.Default.ChatBubble) { onOpenTab(NavTab.CHAT) },
         ToolCategoryNav("Voice", Icons.Default.GraphicEq) { onOpenTab(NavTab.VOICE) },
         ToolCategoryNav("Memory", Icons.Default.Psychology) { onOpenSubScreen(SubScreen.MEMORY) },

@@ -102,6 +102,19 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+import com.example.jarvis.storage.db.ExpenseEntity
+import com.example.jarvis.storage.db.HabitEntity
+import com.example.jarvis.ui.theme.MarkArmorTheme
+import com.example.jarvis.ui.theme.ThemeManager
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Speed
+
 @Composable
 fun HomeScreen(
     jarvisState: JarvisState,
@@ -110,6 +123,11 @@ fun HomeScreen(
     memories: List<MemoryItem> = emptyList(),
     logs: List<ActivityLog> = emptyList(),
     settings: ProviderSettings = ProviderSettings(),
+    expenses: List<ExpenseEntity> = emptyList(),
+    habits: List<HabitEntity> = emptyList(),
+    tiltX: Float = 0f,
+    tiltY: Float = 0f,
+    rmsDb: Float = 0f,
     onVoiceClick: () -> Unit,
     onChatClick: () -> Unit,
     onToolsClick: () -> Unit,
@@ -121,9 +139,19 @@ fun HomeScreen(
     onSearchClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onArmorClick: () -> Unit = {},
+    onExpenseClick: () -> Unit = {},
+    onHabitClick: () -> Unit = {},
+    onCodeStudioClick: () -> Unit = {},
+    onTimerClick: () -> Unit = {},
+    onVoiceNotesClick: () -> Unit = {},
+    onBackupClick: () -> Unit = {},
+    onDiagnosticsClick: () -> Unit = {},
     onQuickCommand: (String) -> Unit,
     onStateChange: (JarvisState) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val activeArmorTheme by ThemeManager.currentTheme.collectAsState()
     var quickInputText by remember { mutableStateOf("") }
 
     val hourOfDay = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -299,6 +327,9 @@ fun HomeScreen(
                     if (useArcReactorMode) {
                         StarkArcReactorHero(
                             isListening = jarvisState == JarvisState.LISTENING,
+                            tiltX = tiltX,
+                            tiltY = tiltY,
+                            rmsDb = rmsDb,
                             onClick = onVoiceClick
                         )
                     } else {
@@ -587,7 +618,176 @@ fun HomeScreen(
             }
         }
 
-        // 4c. QUICK DISPATCH & DAILY DRIVER MATRIX (WhatsApp, Camera, SMS, Calendar)
+        // 4b. LIVE MARK ARMOR THEME SWITCHER
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MARK ARMOR HUE MATRIX",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = activeArmorTheme.accentColor,
+                        letterSpacing = 1.sp
+                    )
+
+                    Text(
+                        text = "VIEW ALL",
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = activeArmorTheme.accentColor,
+                        modifier = Modifier
+                            .clickable { onArmorClick() }
+                            .padding(4.dp)
+                    )
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(MarkArmorTheme.entries.toTypedArray()) { theme ->
+                        val isSelected = theme == activeArmorTheme
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) theme.primaryColor.copy(alpha = 0.35f) else Color(0xFF0F172A))
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) theme.accentColor else Color(0xFF1E293B),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    ThemeManager.setTheme(theme, context)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .background(theme.primaryColor)
+                                )
+                                Text(
+                                    text = theme.title,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) theme.accentColor else JarvisTextSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4c. FINANCIAL & HABIT GLANCE MATRIX
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "VAULT & HABIT PROTOCOLS",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = activeArmorTheme.accentColor,
+                    letterSpacing = 1.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val totalSpend = expenses.sumOf { it.amount }
+                    val todayMidnight = System.currentTimeMillis() - (System.currentTimeMillis() % (24 * 60 * 60 * 1000L))
+                    val completedHabits = habits.count { it.lastCompletedDateMillis >= todayMidnight }
+
+                    CyberActionCard(
+                        title = "Expenses: $${String.format(Locale.US, "%.0f", totalSpend)}",
+                        subtitle = "${expenses.size} entries in Vault",
+                        icon = Icons.Default.AccountBalanceWallet,
+                        accentColor = activeArmorTheme.accentColor,
+                        modifier = Modifier.weight(1f),
+                        onClick = onExpenseClick
+                    )
+
+                    CyberActionCard(
+                        title = "Habits: $completedHabits/${habits.size}",
+                        subtitle = "Daily streak tracking",
+                        icon = Icons.Default.LocalFireDepartment,
+                        accentColor = JarvisAmber,
+                        modifier = Modifier.weight(1f),
+                        onClick = onHabitClick
+                    )
+                }
+
+                // Row 2: Chronometer & Voice Vault
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CyberActionCard(
+                        title = "Arc Chronometer",
+                        subtitle = "Timer, Stopwatch, Strobe",
+                        icon = Icons.Default.Timer,
+                        accentColor = activeArmorTheme.accentColor,
+                        modifier = Modifier.weight(1f),
+                        onClick = onTimerClick
+                    )
+
+                    CyberActionCard(
+                        title = "Voice Audio Vault",
+                        subtitle = "Raw AAC voice memos",
+                        icon = Icons.Default.GraphicEq,
+                        accentColor = JarvisGreen,
+                        modifier = Modifier.weight(1f),
+                        onClick = onVoiceNotesClick
+                    )
+                }
+
+                // Row 3: Backup & Hardware Telemetry
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CyberActionCard(
+                        title = "Data Vault Backup",
+                        subtitle = "JSON export & restore",
+                        icon = Icons.Default.FolderZip,
+                        accentColor = JarvisAmber,
+                        modifier = Modifier.weight(1f),
+                        onClick = onBackupClick
+                    )
+
+                    CyberActionCard(
+                        title = "Hardware Matrix",
+                        subtitle = "Live battery, RAM & sensors",
+                        icon = Icons.Default.Speed,
+                        accentColor = JarvisCyanBright,
+                        modifier = Modifier.weight(1f),
+                        onClick = onDiagnosticsClick
+                    )
+                }
+            }
+        }
+
+        // 4d. QUICK DISPATCH & DAILY DRIVER MATRIX (WhatsApp, Camera, SMS, Calendar)
         item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -730,6 +930,34 @@ fun HomeScreen(
                             icon = Icons.Default.Smartphone,
                             label = "Bridge",
                             onClick = onBridgeClick
+                        )
+                    }
+                    item {
+                        QuickActionChip(
+                            icon = Icons.Default.Palette,
+                            label = "Armor",
+                            onClick = onArmorClick
+                        )
+                    }
+                    item {
+                        QuickActionChip(
+                            icon = Icons.Default.AccountBalanceWallet,
+                            label = "Vault",
+                            onClick = onExpenseClick
+                        )
+                    }
+                    item {
+                        QuickActionChip(
+                            icon = Icons.Default.LocalFireDepartment,
+                            label = "Habits",
+                            onClick = onHabitClick
+                        )
+                    }
+                    item {
+                        QuickActionChip(
+                            icon = Icons.Default.Code,
+                            label = "Code REPL",
+                            onClick = onCodeStudioClick
                         )
                     }
                 }

@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,21 +31,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,30 +60,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jarvis.model.ChatMessage
 import com.example.jarvis.model.JarvisState
 import com.example.jarvis.model.MessageSender
-import com.example.jarvis.model.RiskLevel
-import com.example.jarvis.ui.theme.JarvisAmber
-import com.example.jarvis.ui.theme.JarvisBackground
-import com.example.jarvis.ui.theme.JarvisBorder
-import com.example.jarvis.ui.theme.JarvisBorderSubtle
-import com.example.jarvis.ui.theme.JarvisCyan
-import com.example.jarvis.ui.theme.JarvisCyanBright
-import com.example.jarvis.ui.theme.JarvisElectricBlue
-import com.example.jarvis.ui.theme.JarvisGreen
-import com.example.jarvis.ui.theme.JarvisRed
-import com.example.jarvis.ui.theme.JarvisSurface
-import com.example.jarvis.ui.theme.JarvisTextDim
-import com.example.jarvis.ui.theme.JarvisTextPrimary
-import com.example.jarvis.ui.theme.JarvisTextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -88,18 +77,31 @@ import java.util.Locale
 fun ChatScreen(
     messages: List<ChatMessage>,
     jarvisState: JarvisState,
+    isDarkTheme: Boolean = false,
+    accentColor: Color = Color(0xFF2563EB),
     onSendMessage: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
     onSpeakMessage: (String) -> Unit,
     onRetryMessage: () -> Unit,
     onClearChat: () -> Unit,
+    onOpenDrawer: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
     onVisionClick: () -> Unit = {},
+    onCodeStudioClick: () -> Unit = {},
+    onGetPlusClick: () -> Unit = {},
     isOfflineBrain: Boolean = false,
     onNavigateSettings: () -> Unit = {}
 ) {
     var inputText by remember { mutableStateOf("") }
+    var showAttachmentMenu by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+
+    val bg = if (isDarkTheme) Color(0xFF171717) else Color(0xFFFFFFFF)
+    val cardBg = if (isDarkTheme) Color(0xFF262626) else Color(0xFFF3F4F6)
+    val inputBg = if (isDarkTheme) Color(0xFF262626) else Color(0xFFF4F4F6)
+    val textPrimary = if (isDarkTheme) Color(0xFFECECF1) else Color(0xFF0D0D0D)
+    val textSecondary = if (isDarkTheme) Color(0xFF9E9E9E) else Color(0xFF707070)
+    val pillBg = if (isDarkTheme) Color(0xFF262626) else Color(0xFFEBF3FE)
 
     // Auto-scroll to bottom when messages update
     LaunchedEffect(messages.size, messages.lastOrNull()?.text, jarvisState) {
@@ -108,314 +110,289 @@ fun ChatScreen(
         }
     }
 
-    val quickPrompts = listOf(
-        "Run full device telemetry scan",
-        "Check battery and radio frequencies",
-        "What time and date is it?",
-        "Remember that meeting is at 14:00",
-        "Toggle flashlight",
-        "Show current audio volume",
-        "Summarize recent security logs"
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(JarvisBackground)
+            .background(bg)
             .imePadding()
     ) {
-        // Chat Header Bar with Neural Matrix Status & Controls
+        // Top Bar: [Menu Drawer Button], [+ Get Plus Pill], [New Chat Button]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xEE0B1424),
-                            Color(0xDD060B14)
-                        )
-                    )
-                )
-                .border(0.5.dp, JarvisBorderSubtle)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when (jarvisState) {
-                                JarvisState.THINKING -> JarvisElectricBlue
-                                JarvisState.SPEAKING -> JarvisGreen
-                                JarvisState.ERROR -> JarvisRed
-                                else -> JarvisCyan
-                            }
-                        )
-                )
-                Column {
-                    Text(
-                        text = "NEURAL CHAT CONSOLE",
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp,
-                        color = JarvisCyan
-                    )
-                    Text(
-                        text = when (jarvisState) {
-                            JarvisState.THINKING -> "Synthesizing response..."
-                            JarvisState.SPEAKING -> "Transmitting response..."
-                            else -> if (isOfflineBrain) "Offline Mode • Basic Responses" else "Cloud Matrix Active • Ultra Intelligence"
-                        },
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = if (isOfflineBrain) JarvisAmber else JarvisTextDim
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(
-                    onClick = onRetryMessage,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Retry Last Response",
-                        tint = JarvisTextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onClearChat,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Clear Conversation",
-                        tint = JarvisTextDim,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        // Offline notice banner with direct Settings shortcut
-        if (isOfflineBrain) {
+            // Hamburger Menu Button
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1B150A))
-                    .border(0.8.dp, JarvisAmber.copy(alpha = 0.5f))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(cardBg)
+                    .clickable { onOpenDrawer() }
+                    .testTag("chat_drawer_button"),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Offline Notice",
-                            tint = JarvisAmber,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Offline Mode: Add free Gemini or OpenAI key in Settings for full ChatGPT-level replies.",
-                            fontSize = 11.sp,
-                            color = JarvisAmber,
-                            lineHeight = 14.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "SETTINGS",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = JarvisCyanBright,
-                        modifier = Modifier
-                            .clickable { onNavigateSettings() }
-                            .padding(4.dp)
-                    )
-                }
-            }
-        }
-
-        // Messages List
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            contentPadding = PaddingValues(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(messages, key = { it.id }) { msg ->
-                ChatMessageBubble(
-                    message = msg,
-                    onCopy = { onCopyMessage(msg.text) },
-                    onSpeak = { onSpeakMessage(msg.text) }
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Open Sidebar",
+                    tint = textPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            // Thinking & Tool Execution Indicator
-            if (jarvisState == JarvisState.THINKING) {
-                item {
-                    ThinkingIndicatorBubble()
-                }
-            }
-        }
-
-        // Quick Prompt Suggestions
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x66060B14))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(quickPrompts) { prompt ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF091424))
-                        .border(0.5.dp, JarvisBorderSubtle, RoundedCornerShape(14.dp))
-                        .clickable { inputText = prompt }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = prompt,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = JarvisCyan
-                    )
-                }
-            }
-        }
-
-        // Message Input Bar with Attachments, Mic & Send
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xEE0B1424),
-                            Color(0xF5060A14)
-                        )
-                    )
-                )
-                .border(0.5.dp, JarvisBorderSubtle)
-                .padding(horizontal = 10.dp, vertical = 8.dp)
-        ) {
+            // Center: "+ Get Plus" / "Stark Plus" Pill
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(pillBg)
+                    .clickable { onGetPlusClick() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Optical Vision HUD / Attachment Button
-                IconButton(
-                    onClick = onVisionClick,
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "Get Plus",
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Get Plus",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accentColor
+                )
+            }
+
+            // New Chat / Clear Conversation Button
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(cardBg)
+                    .clickable { onClearChat() }
+                    .testTag("new_chat_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "New Chat",
+                    tint = textPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Main Content Area
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            if (messages.isEmpty()) {
+                // Empty State Starter Screen (Matching Screenshot 6)
+                Column(
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF0D1B2E))
-                        .border(0.5.dp, JarvisBorderSubtle, CircleShape)
-                        .testTag("chat_vision_button")
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.Bottom,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    ActionStarterItem(
+                        icon = Icons.Default.Image,
+                        title = "Create an image",
+                        textColor = textPrimary,
+                        onClick = {
+                            inputText = "Generate a high quality visual illustration of "
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    ActionStarterItem(
+                        icon = Icons.Default.Edit,
+                        title = "Write or edit",
+                        textColor = textPrimary,
+                        onClick = {
+                            inputText = "Help me write and edit: "
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    ActionStarterItem(
+                        icon = Icons.Default.Language,
+                        title = "Search the web",
+                        textColor = textPrimary,
+                        onClick = {
+                            inputText = "Search the latest web updates on "
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    ActionStarterItem(
+                        icon = Icons.Default.Lightbulb,
+                        title = "Brainstorm ideas",
+                        textColor = textPrimary,
+                        onClick = {
+                            inputText = "Brainstorm creative ideas for "
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            } else {
+                // Active Message Stream
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(messages) { message ->
+                        ChatBubbleItem(
+                            message = message,
+                            isDarkTheme = isDarkTheme,
+                            accentColor = accentColor,
+                            onCopy = { onCopyMessage(message.text) },
+                            onSpeak = { onSpeakMessage(message.text) }
+                        )
+                    }
+
+                    if (jarvisState == JarvisState.THINKING) {
+                        item {
+                            ThinkingIndicator(isDarkTheme = isDarkTheme, accentColor = accentColor)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Attachment Sheet Popup
+        AnimatedVisibility(visible = showAttachmentMenu) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBg)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AttachmentOption(icon = Icons.Default.CameraAlt, title = "Vision Camera", onClick = { showAttachmentMenu = false; onVisionClick() }, color = accentColor)
+                AttachmentOption(icon = Icons.Default.Code, title = "Code Studio", onClick = { showAttachmentMenu = false; onCodeStudioClick() }, color = Color(0xFF10A37F))
+                AttachmentOption(icon = Icons.Default.GraphicEq, title = "Voice Vault", onClick = { showAttachmentMenu = false; onVoiceClick() }, color = Color(0xFF8B5CF6))
+            }
+        }
+
+        // Bottom Rounded Input Capsule (Matching Screenshot 6)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(inputBg)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // "+" Attachment / Tools Button
+                IconButton(
+                    onClick = { showAttachmentMenu = !showAttachmentMenu },
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Attach / OCR Vision",
-                        tint = JarvisCyan,
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Attachment Menu",
+                        tint = textPrimary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                // Main Text Input
-                OutlinedTextField(
+                // Text Input Field
+                TextField(
                     value = inputText,
                     onValueChange = { inputText = it },
                     placeholder = {
                         Text(
-                            text = "Transmit directive to JARVIS...",
-                            fontSize = 12.sp,
-                            color = JarvisTextDim
+                            text = "Ask ChatGPT",
+                            fontSize = 15.sp,
+                            color = textSecondary
                         )
                     },
                     modifier = Modifier
                         .weight(1f)
                         .testTag("chat_input_field"),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = JarvisCyan,
-                        unfocusedBorderColor = JarvisBorder,
-                        focusedTextColor = JarvisTextPrimary,
-                        unfocusedTextColor = JarvisTextPrimary,
-                        cursorColor = JarvisCyan,
-                        focusedContainerColor = Color(0xFF080F1C),
-                        unfocusedContainerColor = Color(0xFF080F1C)
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = textPrimary,
+                        unfocusedTextColor = textPrimary
                     ),
                     maxLines = 4
                 )
 
-                // Voice / Mic shortcut button
-                IconButton(
-                    onClick = onVoiceClick,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF0D1B2E))
-                        .border(0.5.dp, JarvisBorderSubtle, CircleShape)
-                        .testTag("chat_mic_shortcut_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Switch to Voice",
-                        tint = JarvisCyan,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                // Send Button
-                IconButton(
-                    onClick = {
-                        if (inputText.isNotBlank()) {
-                            val textToSend = inputText.trim()
-                            inputText = ""
-                            onSendMessage(textToSend)
-                        }
-                    },
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (inputText.isNotBlank()) JarvisCyan else Color(0xFF142033)
+                if (inputText.isNotBlank()) {
+                    // Send Button
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
+                            .clickable {
+                                val msg = inputText.trim()
+                                inputText = ""
+                                onSendMessage(msg)
+                            }
+                            .testTag("send_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
-                        .testTag("chat_send_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (inputText.isNotBlank()) Color.Black else JarvisTextDim,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    }
+                } else {
+                    // Microphone Dictation Button
+                    IconButton(
+                        onClick = onVoiceClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Dictation",
+                            tint = textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Solid Blue Voice Orb Waveform Button (Opens Advanced Voice Mode)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
+                            .clickable { onVoiceClick() }
+                            .testTag("voice_mode_launch_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = "Advanced Voice Mode",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -423,200 +400,94 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ChatMessageBubble(
+private fun ActionStarterItem(
+    icon: ImageVector,
+    title: String,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = textColor,
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
+            color = textColor
+        )
+    }
+}
+
+@Composable
+private fun ChatBubbleItem(
     message: ChatMessage,
+    isDarkTheme: Boolean,
+    accentColor: Color,
     onCopy: () -> Unit,
     onSpeak: () -> Unit
 ) {
     val isUser = message.sender == MessageSender.USER
-    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val timeStr = timeFormat.format(Date(message.timestamp))
+    val bubbleBg = if (isUser) {
+        if (isDarkTheme) Color(0xFF2E2E2E) else Color(0xFFE5E7EB)
+    } else {
+        if (isDarkTheme) Color(0xFF1F1F1F) else Color(0xFFF9FAFB)
+    }
+    val textColor = if (isDarkTheme) Color(0xFFECECF1) else Color(0xFF111827)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // Sender Metadata Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-        ) {
-            Text(
-                text = if (isUser) "OPERATOR" else "J.A.R.V.I.S.",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp,
-                color = if (isUser) JarvisTextSecondary else JarvisCyan
-            )
-
-            // Tool Execution Status Badge
-            message.toolCallName?.let { toolName ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF0B1E34))
-                        .border(0.5.dp, JarvisCyan.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Build,
-                            contentDescription = null,
-                            tint = JarvisCyan,
-                            modifier = Modifier.size(9.dp)
-                        )
-                        Text(
-                            text = "TOOL: $toolName",
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = JarvisCyanBright
-                        )
-                    }
-                }
-            }
-
-            // Risky Action / Confirmation Badge
-            if (message.toolRiskLevel == RiskLevel.CONFIRMATION) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(JarvisAmber.copy(alpha = 0.15f))
-                        .border(0.5.dp, JarvisAmber, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = JarvisAmber,
-                            modifier = Modifier.size(9.dp)
-                        )
-                        Text(
-                            text = "SECURITY CHECKPOINT",
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = JarvisAmber
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = timeStr,
-                fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace,
-                color = JarvisTextDim
-            )
-        }
-
-        // Bubble Surface Container
         Box(
             modifier = Modifier
-                .fillMaxWidth(if (isUser) 0.85f else 0.92f)
                 .clip(
                     RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isUser) 16.dp else 2.dp,
-                        bottomEnd = if (isUser) 2.dp else 16.dp
+                        topStart = 18.dp,
+                        topEnd = 18.dp,
+                        bottomStart = if (isUser) 18.dp else 4.dp,
+                        bottomEnd = if (isUser) 4.dp else 18.dp
                     )
                 )
-                .background(
-                    if (isUser) {
-                        Brush.verticalGradient(
-                            listOf(
-                                Color(0xFF101B2E),
-                                Color(0xFF0C1424)
-                            )
-                        )
-                    } else {
-                        Brush.verticalGradient(
-                            listOf(
-                                Color(0xFF0B1424),
-                                Color(0xFF060B14)
-                            )
-                        )
-                    }
-                )
-                .border(
-                    width = 1.dp,
-                    color = if (isUser) JarvisBorderSubtle else JarvisCyan.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isUser) 16.dp else 2.dp,
-                        bottomEnd = if (isUser) 2.dp else 16.dp
-                    )
-                )
-                .padding(14.dp)
+                .background(bubbleBg)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Column {
-                // Streaming / Typing indicator pulse
-                if (message.isStreaming) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(JarvisCyanBright)
-                        )
-                        Text(
-                            text = "STREAMING NEURAL RESPONSE...",
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = JarvisCyan
-                        )
-                    }
-                }
-
-                // Message Text
                 Text(
                     text = message.text,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = if (isUser) JarvisTextPrimary else JarvisCyanBright
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                    color = textColor
                 )
 
-                // Actions row for JARVIS responses
-                if (!isUser && !message.isStreaming) {
+                if (!isUser) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = onCopy,
-                            modifier = Modifier.size(26.dp)
-                        ) {
+                        IconButton(onClick = onCopy, modifier = Modifier.size(24.dp)) {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy message",
-                                tint = JarvisTextDim,
+                                contentDescription = "Copy",
+                                tint = Color.Gray,
                                 modifier = Modifier.size(14.dp)
                             )
                         }
-                        IconButton(
-                            onClick = onSpeak,
-                            modifier = Modifier.size(26.dp)
-                        ) {
+                        IconButton(onClick = onSpeak, modifier = Modifier.size(24.dp)) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Speak message",
-                                tint = JarvisCyan,
+                                contentDescription = "Read aloud",
+                                tint = accentColor,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -628,37 +499,51 @@ private fun ChatMessageBubble(
 }
 
 @Composable
-private fun ThinkingIndicatorBubble() {
-    val infiniteTransition = rememberInfiniteTransition(label = "thinking_pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "thinking_alpha"
-    )
-
+private fun ThinkingIndicator(isDarkTheme: Boolean, accentColor: Color) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF091222))
-            .border(1.dp, JarvisCyan.copy(alpha = alpha * 0.6f), RoundedCornerShape(14.dp))
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (isDarkTheme) Color(0xFF262626) else Color(0xFFF3F4F6))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(14.dp),
             strokeWidth = 2.dp,
-            color = JarvisCyan
+            color = accentColor
         )
         Text(
-            text = "JARVIS is synthesizing response...",
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
-            color = JarvisCyanBright
+            text = "ChatGPT is thinking...",
+            fontSize = 13.sp,
+            color = if (isDarkTheme) Color(0xFFECECF1) else Color(0xFF374151)
         )
+    }
+}
+
+@Composable
+private fun AttachmentOption(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    color: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(22.dp))
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(title, fontSize = 11.sp, color = Color.Gray)
     }
 }

@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,41 +18,45 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.R
 import com.example.jarvis.auth.AuthState
 import com.example.jarvis.model.JarvisState
 import com.example.jarvis.ui.components.BottomNav
-import com.example.jarvis.ui.components.JarvisOrb
+import com.example.jarvis.ui.components.ChatGPTDrawer
 import com.example.jarvis.ui.components.NavTab
 import com.example.jarvis.ui.components.SafetyConfirmationDialog
 import com.example.jarvis.ui.components.TopBar
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import com.example.R
 import com.example.jarvis.ui.screens.AboutScreen
 import com.example.jarvis.ui.screens.AccountProfileScreen
 import com.example.jarvis.ui.screens.ActivityScreen
@@ -73,6 +78,7 @@ import com.example.jarvis.ui.theme.JarvisBackground
 import com.example.jarvis.ui.theme.JarvisBorderSubtle
 import com.example.jarvis.ui.theme.JarvisCyan
 import com.example.jarvis.ui.theme.JarvisTextSecondary
+import kotlinx.coroutines.launch
 
 private enum class AuthNavState {
     LOGIN,
@@ -108,6 +114,17 @@ fun JarvisApp(
     val isContinuousConversationActive by viewModel.isContinuousConversationActive.collectAsState()
     val isMicMuted by viewModel.isMicMuted.collectAsState()
     val isSpeakerEnabled by viewModel.isSpeakerEnabled.collectAsState()
+    val expenses by viewModel.expenses.collectAsState(initial = emptyList())
+    val habits by viewModel.habits.collectAsState(initial = emptyList())
+    val deviceTilt by viewModel.deviceTilt.collectAsState()
+    val voiceRmsDb by viewModel.voiceRmsDb.collectAsState()
+
+    // ChatGPT Theme & Accent states
+    var isDarkTheme by remember { mutableStateOf(false) }
+    var selectedAccentColor by remember { mutableStateOf(Color(0xFF2563EB)) } // Default ChatGPT Blue
+
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
 
     // Request audio permission launcher
     val audioPermissionLauncher = rememberLauncherForActivityResult(
@@ -120,11 +137,11 @@ fun JarvisApp(
 
     when (val state = authState) {
         is AuthState.Initializing -> {
-            // Futuristic Boot Splash with Official JARVIS Logo
+            // Futuristic Boot Splash
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(JarvisBackground),
+                    .background(if (isDarkTheme) Color(0xFF171717) else Color(0xFFFFFFFF)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -133,35 +150,28 @@ fun JarvisApp(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(200.dp)
+                            .size(100.dp)
                             .clip(CircleShape)
-                            .border(2.dp, JarvisCyan.copy(alpha = 0.8f), CircleShape)
-                            .background(Color(0xFF070D18)),
+                            .background(selectedAccentColor),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.jarvis_logo_round),
-                            contentDescription = "Official JARVIS Logo",
-                            modifier = Modifier
-                                .size(200.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Fit
+                        Text(
+                            text = "IM",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                     Text(
-                        text = "J.A.R.V.I.S.",
+                        text = "ChatGPT",
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 4.sp,
-                        color = JarvisCyan
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDarkTheme) Color.White else Color(0xFF111827)
                     )
                     Text(
-                        text = "INITIALIZING SECURE PROTOCOLS...",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = JarvisTextSecondary,
-                        letterSpacing = 1.sp
+                        text = "Connecting to Neural Core...",
+                        fontSize = 12.sp,
+                        color = Color.Gray
                     )
                 }
             }
@@ -194,73 +204,289 @@ fun JarvisApp(
         }
 
         is AuthState.Authenticated -> {
-            // Handle back button if in a SubScreen
-            BackHandler(enabled = activeSubScreen != null) {
-                viewModel.closeSubScreen()
+            // Handle back button if drawer is open or in a SubScreen
+            BackHandler(enabled = drawerState.isOpen || activeSubScreen != null) {
+                if (drawerState.isOpen) {
+                    coroutineScope.launch { drawerState.close() }
+                } else if (activeSubScreen != null) {
+                    viewModel.closeSubScreen()
+                }
             }
 
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = JarvisBackground,
-                topBar = {
-                    TopBar(
-                        telemetry = telemetry,
-                        isOnline = true,
-                        onProfileClick = {
-                            viewModel.openSubScreen(SubScreen.ACCOUNT)
-                        }
-                    )
-                },
-                bottomBar = {
-                    BottomNav(
-                        currentTab = currentTab,
-                        onTabSelected = { tab ->
-                            viewModel.setTab(tab)
-                        }
-                    )
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = activeSubScreen == null,
+                drawerContent = {
+                    ModalDrawerSheet(
+                        drawerContainerColor = if (isDarkTheme) Color(0xFF171717) else Color(0xFFFFFFFF),
+                        drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+                    ) {
+                        ChatGPTDrawer(
+                            isDarkTheme = isDarkTheme,
+                            accentColor = selectedAccentColor,
+                            onImagesClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.VISION)
+                            },
+                            onLibraryClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.MEMORY)
+                            },
+                            onProjectsClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.CODE_STUDIO)
+                            },
+                            onScheduledClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.TIMER_STOPWATCH)
+                            },
+                            onPluginsClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.PLUGINS)
+                            },
+                            onSearchClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.openSubScreen(SubScreen.SEARCH)
+                            },
+                            onSelectConversation = { title ->
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.setTab(NavTab.CHAT)
+                                viewModel.sendUserMessage("Let's talk about: $title")
+                            },
+                            onNewChatClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.repository.clearMessages()
+                                viewModel.setTab(NavTab.CHAT)
+                            },
+                            onProfileClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.setTab(NavTab.SETTINGS)
+                            },
+                            onVoiceModeClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                viewModel.setTab(NavTab.VOICE)
+                            }
+                        )
+                    }
                 }
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    val currentSubScreen = activeSubScreen
-                    if (currentSubScreen != null) {
-                        // SubScreen Container with Header
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            SubScreenHeader(
-                                title = currentSubScreen.name,
-                                onBack = { viewModel.closeSubScreen() }
-                            )
+            ) {
+                val appBg = if (isDarkTheme) Color(0xFF171717) else Color(0xFFF9F9FB)
 
-                            when (currentSubScreen) {
-                                SubScreen.ACCOUNT -> AccountProfileScreen(
-                                    user = state.user,
-                                    authManager = viewModel.authManager,
-                                    onSignOut = {
-                                        viewModel.authManager.signOut()
-                                        viewModel.closeSubScreen()
-                                    }
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = appBg
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        val currentSubScreen = activeSubScreen
+                        if (currentSubScreen != null) {
+                            // SubScreen Container with Header
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                SubScreenHeader(
+                                    title = currentSubScreen.name,
+                                    isDarkTheme = isDarkTheme,
+                                    accentColor = selectedAccentColor,
+                                    onBack = { viewModel.closeSubScreen() }
                                 )
-                                SubScreen.TOOLS -> ToolsScreen(
-                                    tools = viewModel.brain.registry.getAllTools(),
-                                    toolContext = viewModel.toolContext,
-                                    onOpenSubScreen = { viewModel.openSubScreen(it) },
-                                    onOpenTab = { viewModel.setTab(it) }
-                                )
-                                SubScreen.FILES -> com.example.jarvis.ui.screens.FilesScreen(
-                                    onGenerateFilePrompt = { prompt ->
-                                        viewModel.sendUserMessage(prompt)
-                                        viewModel.closeSubScreen()
-                                        viewModel.setTab(com.example.jarvis.ui.components.NavTab.CHAT)
+
+                                when (currentSubScreen) {
+                                    SubScreen.ACCOUNT -> AccountProfileScreen(
+                                        user = state.user,
+                                        authManager = viewModel.authManager,
+                                        onSignOut = {
+                                            viewModel.authManager.signOut()
+                                            viewModel.closeSubScreen()
+                                        }
+                                    )
+                                    SubScreen.TOOLS -> ToolsScreen(
+                                        tools = viewModel.brain.registry.getAllTools(),
+                                        toolContext = viewModel.toolContext,
+                                        onOpenSubScreen = { viewModel.openSubScreen(it) },
+                                        onOpenTab = { viewModel.setTab(it) }
+                                    )
+                                    SubScreen.FILES -> com.example.jarvis.ui.screens.FilesScreen(
+                                        onGenerateFilePrompt = { prompt ->
+                                            viewModel.sendUserMessage(prompt)
+                                            viewModel.closeSubScreen()
+                                            viewModel.setTab(NavTab.CHAT)
+                                        },
+                                        onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
+                                    )
+                                    SubScreen.AUTOMATION -> com.example.jarvis.ui.screens.AutomationScreen(
+                                        orchestrator = viewModel.brain.automationOrchestrator
+                                    )
+                                    SubScreen.TASKS -> TasksScreen(
+                                        tasks = tasks,
+                                        timers = timers,
+                                        onToggleTask = { viewModel.repository.toggleTask(it) },
+                                        onDeleteTask = { viewModel.repository.deleteTask(it) },
+                                        onAddTask = { title, notes, priority ->
+                                            viewModel.repository.addTask(title, notes, priority)
+                                        },
+                                        onAddTimer = { label, seconds ->
+                                            viewModel.repository.addTimer(label, seconds)
+                                        },
+                                        onDeleteTimer = { viewModel.repository.deleteTimer(it) },
+                                        onUpdateTimer = { id, remaining, running ->
+                                            viewModel.repository.updateTimer(id, remaining, running)
+                                        }
+                                    )
+                                    SubScreen.MEMORY -> MemoryScreen(
+                                        memories = memories,
+                                        onAddMemory = { title, content, cat ->
+                                            viewModel.repository.addMemory(title, content, cat)
+                                        },
+                                        onDeleteMemory = { viewModel.repository.deleteMemory(it) },
+                                        onClearAllMemories = { viewModel.repository.clearAllMemories() }
+                                    )
+                                    SubScreen.ACTIVITY -> ActivityScreen(
+                                        logs = logs,
+                                        onClearLogs = { viewModel.repository.clearActivityLogs() }
+                                    )
+                                    SubScreen.VISION -> VisionScreen(
+                                        scans = scans,
+                                        aiProvider = viewModel.aiProvider,
+                                        onAddScan = { viewModel.repository.addVisionScan(it) },
+                                        visionEngine = viewModel.visionEngine,
+                                        activeResult = activeVisionResult,
+                                        onSetActiveResult = { res, uri -> viewModel.setActiveVisionContext(res, uri) },
+                                        onExecuteAction = { action -> viewModel.executeVisionDerivedAction(action) },
+                                        onAskJarvis = { prompt -> viewModel.askJarvisAboutVision(prompt) },
+                                        onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
+                                    )
+                                    SubScreen.PRIVACY -> PrivacyScreen(
+                                        auditor = viewModel.privacyAuditor,
+                                        onOpenSettings = { viewModel.openAndroidSettings(it) }
+                                    )
+                                    SubScreen.BRIDGE -> AndroidBridgeScreen(
+                                        telemetry = telemetry,
+                                        onRefreshTelemetry = { viewModel.bridge.refreshTelemetry() },
+                                        onToggleFlashlight = { viewModel.toggleFlashlight(it) },
+                                        onOpenSystemSettings = { viewModel.openAndroidSettings() }
+                                    )
+                                    SubScreen.VOICE_SETUP -> VoiceSetupScreen(
+                                        currentSettings = settings,
+                                        onUpdateSettings = { viewModel.repository.updateSettings(it) },
+                                        onTestWakeTrigger = { viewModel.triggerWakeSession() }
+                                    )
+                                    SubScreen.VOICE_SELECTION -> VoiceSelectionScreen(
+                                        currentSettings = settings,
+                                        onUpdateSettings = { viewModel.repository.updateSettings(it) },
+                                        onTestSpeak = { text, rate, pitch ->
+                                            viewModel.speakText(text, rate, pitch)
+                                        }
+                                    )
+                                    SubScreen.ABOUT -> AboutScreen()
+                                    SubScreen.DIAGNOSTICS -> com.example.jarvis.ui.screens.DiagnosticsScreen(
+                                        repository = viewModel.repository,
+                                        bridge = viewModel.bridge
+                                    )
+                                    SubScreen.NOTIFICATIONS -> com.example.jarvis.ui.screens.NotificationIntelligenceScreen(
+                                        repository = viewModel.repository,
+                                        onOpenNotificationSettings = {
+                                            viewModel.bridge.getApplicationContext().startActivity(
+                                                com.example.jarvis.notification.JarvisNotificationListenerService.getNotificationSettingsIntent()
+                                            )
+                                        }
+                                    )
+                                    SubScreen.SEARCH -> com.example.jarvis.ui.screens.UniversalSearchScreen(
+                                        repository = viewModel.repository,
+                                        bridge = viewModel.bridge,
+                                        onOpenSubScreen = { subScreen ->
+                                            viewModel.openSubScreen(subScreen)
+                                        }
+                                    )
+                                    SubScreen.PLUGINS -> com.example.jarvis.ui.screens.PluginsScreen(
+                                        pluginManager = viewModel.pluginManager,
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.ARMOR_THEMES -> com.example.jarvis.ui.screens.ArmorThemeScreen(
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.EXPENSES -> com.example.jarvis.ui.screens.ExpenseTrackerScreen(
+                                        repository = viewModel.repository,
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.HABITS -> com.example.jarvis.ui.screens.HabitTrackerScreen(
+                                        repository = viewModel.repository,
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.CODE_STUDIO -> com.example.jarvis.ui.screens.CodeStudioScreen(
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.VOICE_NOTES -> com.example.jarvis.ui.screens.VoiceNotesScreen(
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.TIMER_STOPWATCH -> com.example.jarvis.ui.screens.TimerStopwatchScreen(
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                    SubScreen.BACKUP_EXPORT -> com.example.jarvis.ui.screens.DataBackupScreen(
+                                        repository = viewModel.repository,
+                                        onBack = { viewModel.closeSubScreen() }
+                                    )
+                                }
+                            }
+                        } else {
+                            // Main Screen Router
+                            when (currentTab) {
+                                NavTab.HOME, NavTab.CHAT -> {
+                                    val isOffline = settings.customApiKey.isBlank() &&
+                                            (com.example.BuildConfig.GEMINI_API_KEY.isBlank() || com.example.BuildConfig.GEMINI_API_KEY == "MY_GEMINI_API_KEY")
+                                    ChatScreen(
+                                        messages = messages,
+                                        jarvisState = jarvisState,
+                                        isDarkTheme = isDarkTheme,
+                                        accentColor = selectedAccentColor,
+                                        onSendMessage = { viewModel.sendUserMessage(it) },
+                                        onCopyMessage = { viewModel.copyToClipboard(it) },
+                                        onSpeakMessage = { viewModel.speakText(it) },
+                                        onRetryMessage = { viewModel.retryLastMessage() },
+                                        onClearChat = { viewModel.repository.clearMessages() },
+                                        onOpenDrawer = {
+                                            coroutineScope.launch { drawerState.open() }
+                                        },
+                                        onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
+                                        onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) },
+                                        onCodeStudioClick = { viewModel.openSubScreen(SubScreen.CODE_STUDIO) },
+                                        onGetPlusClick = { viewModel.setTab(NavTab.SETTINGS) },
+                                        isOfflineBrain = isOffline,
+                                        onNavigateSettings = { viewModel.setTab(NavTab.SETTINGS) }
+                                    )
+                                }
+
+                                NavTab.VOICE -> com.example.jarvis.ui.screens.VoiceScreen(
+                                    jarvisState = jarvisState,
+                                    isListening = isListening,
+                                    isSpeaking = isSpeaking,
+                                    liveTranscript = liveTranscript,
+                                    lastResponse = lastResponse,
+                                    speechSupported = speechSupported,
+                                    voiceRmsDb = voiceRmsDb,
+                                    isContinuousModeActive = isContinuousConversationActive,
+                                    isMicMuted = isMicMuted,
+                                    isSpeakerEnabled = isSpeakerEnabled,
+                                    isDarkTheme = isDarkTheme,
+                                    onStartListening = {
+                                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     },
-                                    onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
+                                    onStopListening = { viewModel.stopListening() },
+                                    onSpeakText = { text, rate, pitch ->
+                                        viewModel.speakText(text, rate, pitch)
+                                    },
+                                    onStopSpeaking = { viewModel.stopSpeaking() },
+                                    onToggleContinuousMode = { viewModel.toggleContinuousConversation() },
+                                    onToggleMicMute = { viewModel.toggleMicMute() },
+                                    onToggleSpeaker = { viewModel.toggleSpeaker() },
+                                    onInterruptAndListen = { viewModel.interruptAndListen() },
+                                    onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
+                                    onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
+                                    onCloseVoiceMode = { viewModel.setTab(NavTab.CHAT) }
                                 )
-                                SubScreen.AUTOMATION -> com.example.jarvis.ui.screens.AutomationScreen(
-                                    orchestrator = viewModel.brain.automationOrchestrator
-                                )
-                                SubScreen.TASKS -> TasksScreen(
+
+                                NavTab.TASKS -> TasksScreen(
                                     tasks = tasks,
                                     timers = timers,
                                     onToggleTask = { viewModel.repository.toggleTask(it) },
@@ -276,215 +502,44 @@ fun JarvisApp(
                                         viewModel.repository.updateTimer(id, remaining, running)
                                     }
                                 )
-                                SubScreen.MEMORY -> MemoryScreen(
-                                    memories = memories,
-                                    onAddMemory = { title, content, cat ->
-                                        viewModel.repository.addMemory(title, content, cat)
+
+                                NavTab.SETTINGS -> SettingsScreen(
+                                    currentSettings = settings,
+                                    onSaveSettings = { viewModel.repository.updateSettings(it) },
+                                    isDarkTheme = isDarkTheme,
+                                    selectedAccentColor = selectedAccentColor,
+                                    onToggleDarkTheme = { isDarkTheme = it },
+                                    onSelectAccentColor = { selectedAccentColor = it },
+                                    onNavigatePrivacy = { viewModel.openSubScreen(SubScreen.PRIVACY) },
+                                    onNavigateMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
+                                    onNavigateBridge = { viewModel.openSubScreen(SubScreen.BRIDGE) },
+                                    onNavigateActivity = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
+                                    onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
+                                    onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
+                                    onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
+                                    onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
+                                    onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
+                                    onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
+                                    onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
+                                    onNavigatePlugins = { viewModel.openSubScreen(SubScreen.PLUGINS) },
+                                    onNavigateBackup = { viewModel.openSubScreen(SubScreen.BACKUP_EXPORT) },
+                                    onLogout = {
+                                        viewModel.authManager.signOut()
                                     },
-                                    onDeleteMemory = { viewModel.repository.deleteMemory(it) },
-                                    onClearAllMemories = { viewModel.repository.clearAllMemories() }
-                                )
-                                SubScreen.ACTIVITY -> ActivityScreen(
-                                    logs = logs,
-                                    onClearLogs = { viewModel.repository.clearActivityLogs() }
-                                )
-                                SubScreen.VISION -> VisionScreen(
-                                    scans = scans,
-                                    aiProvider = viewModel.aiProvider,
-                                    onAddScan = { viewModel.repository.addVisionScan(it) },
-                                    visionEngine = viewModel.visionEngine,
-                                    activeResult = activeVisionResult,
-                                    onSetActiveResult = { res, uri -> viewModel.setActiveVisionContext(res, uri) },
-                                    onExecuteAction = { action -> viewModel.executeVisionDerivedAction(action) },
-                                    onAskJarvis = { prompt -> viewModel.askJarvisAboutVision(prompt) },
-                                    onCopyToClipboard = { text -> viewModel.copyToClipboard(text) }
-                                )
-                                SubScreen.PRIVACY -> PrivacyScreen(
-                                    auditor = viewModel.privacyAuditor,
-                                    onOpenSettings = { viewModel.openAndroidSettings(it) }
-                                )
-                                SubScreen.BRIDGE -> AndroidBridgeScreen(
-                                    telemetry = telemetry,
-                                    onRefreshTelemetry = { viewModel.bridge.refreshTelemetry() },
-                                    onToggleFlashlight = { viewModel.toggleFlashlight(it) },
-                                    onOpenSystemSettings = { viewModel.openAndroidSettings() }
-                                )
-                                SubScreen.VOICE_SETUP -> VoiceSetupScreen(
-                                    currentSettings = settings,
-                                    onUpdateSettings = { viewModel.repository.updateSettings(it) },
-                                    onTestWakeTrigger = { viewModel.triggerWakeSession() }
-                                )
-                                SubScreen.VOICE_SELECTION -> VoiceSelectionScreen(
-                                    currentSettings = settings,
-                                    onUpdateSettings = { viewModel.repository.updateSettings(it) },
-                                    onTestSpeak = { text, rate, pitch ->
-                                        viewModel.speakText(text, rate, pitch)
+                                    onNavigateBack = {
+                                        viewModel.setTab(NavTab.CHAT)
                                     }
-                                )
-                                SubScreen.ABOUT -> AboutScreen()
-                                SubScreen.DIAGNOSTICS -> com.example.jarvis.ui.screens.DiagnosticsScreen(
-                                    repository = viewModel.repository,
-                                    bridge = viewModel.bridge
-                                )
-                                SubScreen.NOTIFICATIONS -> com.example.jarvis.ui.screens.NotificationIntelligenceScreen(
-                                    repository = viewModel.repository,
-                                    onOpenNotificationSettings = {
-                                        viewModel.bridge.getApplicationContext().startActivity(
-                                            com.example.jarvis.notification.JarvisNotificationListenerService.getNotificationSettingsIntent()
-                                        )
-                                    }
-                                )
-                                SubScreen.SEARCH -> com.example.jarvis.ui.screens.UniversalSearchScreen(
-                                    repository = viewModel.repository,
-                                    bridge = viewModel.bridge,
-                                    onOpenSubScreen = { subScreen ->
-                                        viewModel.openSubScreen(subScreen)
-                                    }
-                                )
-                                SubScreen.PLUGINS -> com.example.jarvis.ui.screens.PluginsScreen(
-                                    pluginManager = viewModel.pluginManager,
-                                    onBack = { viewModel.closeSubScreen() }
                                 )
                             }
                         }
-                    } else {
-                        // Main BottomNav Screens
-                        when (currentTab) {
-                            NavTab.HOME -> HomeScreen(
-                                jarvisState = jarvisState,
-                                telemetry = telemetry,
-                                tasks = tasks,
-                                memories = memories,
-                                logs = logs,
-                                settings = settings,
-                                onVoiceClick = {
-                                    viewModel.setTab(NavTab.VOICE)
-                                },
-                                onChatClick = {
-                                    viewModel.setTab(NavTab.CHAT)
-                                },
-                                onToolsClick = {
-                                    viewModel.openSubScreen(SubScreen.TOOLS)
-                                },
-                                onMemoryClick = {
-                                    viewModel.openSubScreen(SubScreen.MEMORY)
-                                },
-                                onActivityClick = {
-                                    viewModel.openSubScreen(SubScreen.ACTIVITY)
-                                },
-                                onVisionClick = {
-                                    viewModel.openSubScreen(SubScreen.VISION)
-                                },
-                                onPrivacyClick = {
-                                    viewModel.openSubScreen(SubScreen.PRIVACY)
-                                },
-                                onBridgeClick = {
-                                    viewModel.openSubScreen(SubScreen.BRIDGE)
-                                },
-                                onSearchClick = {
-                                    viewModel.openSubScreen(SubScreen.SEARCH)
-                                },
-                                onTasksClick = {
-                                    viewModel.setTab(NavTab.TASKS)
-                                },
-                                onSettingsClick = {
-                                    viewModel.setTab(NavTab.SETTINGS)
-                                },
-                                onQuickCommand = { cmd ->
-                                    viewModel.setTab(NavTab.CHAT)
-                                    viewModel.sendUserMessage(cmd)
-                                },
-                                onStateChange = { newState ->
-                                    viewModel.setJarvisState(newState)
-                                }
-                            )
 
-                            NavTab.CHAT -> {
-                                val isOffline = settings.customApiKey.isBlank() &&
-                                        (com.example.BuildConfig.GEMINI_API_KEY.isBlank() || com.example.BuildConfig.GEMINI_API_KEY == "MY_GEMINI_API_KEY")
-                                ChatScreen(
-                                    messages = messages,
-                                    jarvisState = jarvisState,
-                                    onSendMessage = { viewModel.sendUserMessage(it) },
-                                    onCopyMessage = { viewModel.copyToClipboard(it) },
-                                    onSpeakMessage = { viewModel.speakText(it) },
-                                    onRetryMessage = { viewModel.retryLastMessage() },
-                                    onClearChat = { viewModel.repository.clearMessages() },
-                                    onVoiceClick = { viewModel.setTab(NavTab.VOICE) },
-                                    onVisionClick = { viewModel.openSubScreen(SubScreen.VISION) },
-                                    isOfflineBrain = isOffline,
-                                    onNavigateSettings = { viewModel.setTab(NavTab.SETTINGS) }
-                                )
-                            }
-
-                            NavTab.VOICE -> com.example.jarvis.ui.screens.VoiceScreen(
-                                jarvisState = jarvisState,
-                                isListening = isListening,
-                                isSpeaking = isSpeaking,
-                                liveTranscript = liveTranscript,
-                                lastResponse = lastResponse,
-                                speechSupported = speechSupported,
-                                isContinuousModeActive = isContinuousConversationActive,
-                                isMicMuted = isMicMuted,
-                                isSpeakerEnabled = isSpeakerEnabled,
-                                onStartListening = {
-                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                },
-                                onStopListening = { viewModel.stopListening() },
-                                onSpeakText = { text, rate, pitch ->
-                                    viewModel.speakText(text, rate, pitch)
-                                },
-                                onStopSpeaking = { viewModel.stopSpeaking() },
-                                onToggleContinuousMode = { viewModel.toggleContinuousConversation() },
-                                onToggleMicMute = { viewModel.toggleMicMute() },
-                                onToggleSpeaker = { viewModel.toggleSpeaker() },
-                                onInterruptAndListen = { viewModel.interruptAndListen() },
-                                onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
-                                onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) }
-                            )
-
-                            NavTab.TASKS -> TasksScreen(
-                                tasks = tasks,
-                                timers = timers,
-                                onToggleTask = { viewModel.repository.toggleTask(it) },
-                                onDeleteTask = { viewModel.repository.deleteTask(it) },
-                                onAddTask = { title, notes, priority ->
-                                    viewModel.repository.addTask(title, notes, priority)
-                                },
-                                onAddTimer = { label, seconds ->
-                                    viewModel.repository.addTimer(label, seconds)
-                                },
-                                onDeleteTimer = { viewModel.repository.deleteTimer(it) },
-                                onUpdateTimer = { id, remaining, running ->
-                                    viewModel.repository.updateTimer(id, remaining, running)
-                                }
-                            )
-
-                            NavTab.SETTINGS -> SettingsScreen(
-                                currentSettings = settings,
-                                onSaveSettings = { viewModel.repository.updateSettings(it) },
-                                onNavigatePrivacy = { viewModel.openSubScreen(SubScreen.PRIVACY) },
-                                onNavigateMemory = { viewModel.openSubScreen(SubScreen.MEMORY) },
-                                onNavigateBridge = { viewModel.openSubScreen(SubScreen.BRIDGE) },
-                                onNavigateActivity = { viewModel.openSubScreen(SubScreen.ACTIVITY) },
-                                onNavigateVision = { viewModel.openSubScreen(SubScreen.VISION) },
-                                onNavigateVoiceSetup = { viewModel.openSubScreen(SubScreen.VOICE_SETUP) },
-                                onNavigateVoiceProfiles = { viewModel.openSubScreen(SubScreen.VOICE_SELECTION) },
-                                onNavigateAbout = { viewModel.openSubScreen(SubScreen.ABOUT) },
-                                onNavigateDiagnostics = { viewModel.openSubScreen(SubScreen.DIAGNOSTICS) },
-                                onNavigateNotifications = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
-                                onNavigateSearch = { viewModel.openSubScreen(SubScreen.SEARCH) },
-                                onNavigatePlugins = { viewModel.openSubScreen(SubScreen.PLUGINS) }
+                        // Safety Confirmation Dialog
+                        safetyRequest?.let { request ->
+                            SafetyConfirmationDialog(
+                                request = request,
+                                onDismiss = { viewModel.dismissSafetyDialog() }
                             )
                         }
-                    }
-
-                    // Safety Confirmation Dialog (Always high-priority overlay if active)
-                    safetyRequest?.let { request ->
-                        SafetyConfirmationDialog(
-                            request = request,
-                            onDismiss = { viewModel.dismissSafetyDialog() }
-                        )
                     }
                 }
             }
@@ -495,34 +550,36 @@ fun JarvisApp(
 @Composable
 private fun SubScreenHeader(
     title: String,
+    isDarkTheme: Boolean = false,
+    accentColor: Color = Color(0xFF2563EB),
     onBack: () -> Unit
 ) {
+    val bg = if (isDarkTheme) Color(0xFF202020) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDarkTheme) Color(0xFFECECF1) else Color(0xFF0D0D0D)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF090E1A))
-            .border(0.5.dp, JarvisBorderSubtle)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .background(bg)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = JarvisCyan,
+                tint = textPrimary,
                 modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Text(
-            text = "SUBMODULE: $title",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            letterSpacing = 1.sp,
-            color = JarvisCyan
+            text = title,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = textPrimary
         )
     }
 }

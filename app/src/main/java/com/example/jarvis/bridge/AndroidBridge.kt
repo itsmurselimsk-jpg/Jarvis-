@@ -8,6 +8,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
 import android.media.AudioAttributes
@@ -71,12 +75,21 @@ class AndroidBridge(private val context: Context) {
     private val _isTorchActive = MutableStateFlow(false)
     val isTorchActive: StateFlow<Boolean> = _isTorchActive.asStateFlow()
 
+    private val _voiceRmsDb = MutableStateFlow(0f)
+    val voiceRmsDb: StateFlow<Float> = _voiceRmsDb.asStateFlow()
+
+    private val _deviceTilt = MutableStateFlow(Pair(0f, 0f))
+    val deviceTilt: StateFlow<Pair<Float, Float>> = _deviceTilt.asStateFlow()
+
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
+
+    private var sensorManager: SensorManager? = null
+    private var accelListener: SensorEventListener? = null
 
     fun isTtsInitialized(): Boolean = isTtsReady
     fun getApplicationContext(): Context = context
@@ -90,6 +103,7 @@ class AndroidBridge(private val context: Context) {
         initTts()
         initSpeechRecognizer()
         initTorchMonitoring()
+        initSensorMonitoring()
         refreshTelemetry()
     }
 
@@ -133,13 +147,17 @@ class AndroidBridge(private val context: Context) {
                             _isListening.value = true
                         }
                         override fun onBeginningOfSpeech() {}
-                        override fun onRmsChanged(rmsdB: Float) {}
+                        override fun onRmsChanged(rmsdB: Float) {
+                            _voiceRmsDb.value = (rmsdB.coerceIn(0f, 15f))
+                        }
                         override fun onBufferReceived(buffer: ByteArray?) {}
                         override fun onEndOfSpeech() {
                             _isListening.value = false
+                            _voiceRmsDb.value = 0f
                         }
                         override fun onError(error: Int) {
                             _isListening.value = false
+                            _voiceRmsDb.value = 0f
                         }
                         override fun onResults(results: Bundle?) {
                             _isListening.value = false
@@ -182,6 +200,26 @@ class AndroidBridge(private val context: Context) {
                 cameraManager.registerTorchCallback(cb, null)
             } catch (_: Exception) {}
         }
+    }
+
+    private fun initSensorMonitoring() {
+        try {
+            sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+            val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            if (accel != null) {
+                accelListener = object : SensorEventListener {
+                    override fun onSensorChanged(event: SensorEvent?) {
+                        if (event != null && event.values.size >= 2) {
+                            val x = event.values[0]
+                            val y = event.values[1]
+                            _deviceTilt.value = Pair(-x / 9.81f, y / 9.81f)
+                        }
+                    }
+                    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                }
+                sensorManager?.registerListener(accelListener, accel, SensorManager.SENSOR_DELAY_UI)
+            }
+        } catch (_: Exception) {}
     }
 
     fun toggleMicMute() {

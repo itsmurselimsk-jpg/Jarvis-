@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +64,7 @@ import com.example.jarvis.ui.theme.JarvisRed
 import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
+import com.example.jarvis.ui.theme.ThemeManager
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -75,8 +77,12 @@ import kotlin.math.sin
 fun StarkArcReactorHero(
     modifier: Modifier = Modifier,
     isListening: Boolean = false,
+    tiltX: Float = 0f,
+    tiltY: Float = 0f,
+    rmsDb: Float = 0f,
     onClick: () -> Unit
 ) {
+    val armorTheme by ThemeManager.currentTheme.collectAsState()
     val infiniteTransition = rememberInfiniteTransition(label = "stark_arc_reactor")
 
     val outerSpin by infiniteTransition.animateFloat(
@@ -109,6 +115,8 @@ fun StarkArcReactorHero(
         label = "corePulse"
     )
 
+    val livePulse = corePulse * (1f + (rmsDb.coerceIn(0f, 15f) / 15f) * 0.40f)
+
     Box(
         modifier = modifier
             .size(240.dp)
@@ -117,29 +125,33 @@ fun StarkArcReactorHero(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
+            val baseCenter = Offset(size.width / 2f, size.height / 2f)
+            val center = Offset(
+                baseCenter.x + (tiltX.coerceIn(-1f, 1f) * 16.dp.toPx()),
+                baseCenter.y + (tiltY.coerceIn(-1f, 1f) * 16.dp.toPx())
+            )
             val maxRadius = size.minDimension / 2f - 10.dp.toPx()
 
-            // 1. Ambient Background Radial Flare
+            // 1. Ambient Background Radial Flare with Armor Theme
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        JarvisCyanBright.copy(alpha = 0.28f * corePulse),
-                        JarvisCyan.copy(alpha = 0.14f),
-                        JarvisElectricBlue.copy(alpha = 0.04f),
+                        armorTheme.accentColor.copy(alpha = 0.32f * livePulse),
+                        armorTheme.primaryColor.copy(alpha = 0.16f),
+                        armorTheme.glowColor.copy(alpha = 0.05f),
                         Color.Transparent
                     ),
                     center = center,
-                    radius = maxRadius * 1.05f
+                    radius = maxRadius * 1.1f
                 ),
-                radius = maxRadius * 1.05f,
+                radius = maxRadius * 1.1f,
                 center = center
             )
 
             // 2. Outer Technical Coordinate Ring (Dashed Arc)
             rotate(outerSpin, pivot = center) {
                 drawCircle(
-                    color = JarvisCyan.copy(alpha = 0.45f),
+                    color = armorTheme.primaryColor.copy(alpha = 0.50f),
                     radius = maxRadius * 0.95f,
                     center = center,
                     style = Stroke(
@@ -160,7 +172,7 @@ fun StarkArcReactorHero(
                         (center.y + (maxRadius * 0.99f) * sin(rad)).toFloat()
                     )
                     drawLine(
-                        color = JarvisCyanBright,
+                        color = armorTheme.accentColor,
                         start = p1,
                         end = p2,
                         strokeWidth = 3f,
@@ -172,7 +184,7 @@ fun StarkArcReactorHero(
             // 3. Middle Counter-Rotating Gear Ring
             rotate(innerSpin, pivot = center) {
                 drawCircle(
-                    color = JarvisElectricBlue.copy(alpha = 0.55f),
+                    color = armorTheme.glowColor.copy(alpha = 0.60f),
                     radius = maxRadius * 0.72f,
                     center = center,
                     style = Stroke(
@@ -189,8 +201,8 @@ fun StarkArcReactorHero(
                         (center.y + (maxRadius * 0.72f) * sin(rad)).toFloat()
                     )
                     drawCircle(
-                        color = JarvisCyanBright,
-                        radius = 3.5f * corePulse,
+                        color = armorTheme.accentColor,
+                        radius = 3.5f * livePulse,
                         center = nodePos
                     )
                 }
@@ -205,10 +217,10 @@ fun StarkArcReactorHero(
             drawCircle(
                 brush = Brush.sweepGradient(
                     listOf(
-                        JarvisCyanBright,
-                        JarvisCyan,
-                        JarvisPurpleHighlight.copy(alpha = 0.8f),
-                        JarvisCyanBright
+                        armorTheme.accentColor,
+                        armorTheme.primaryColor,
+                        armorTheme.glowColor.copy(alpha = 0.8f),
+                        armorTheme.accentColor
                     ),
                     center = center
                 ),
@@ -218,13 +230,13 @@ fun StarkArcReactorHero(
             )
 
             // 5. Central Plasma Core Glow
-            val glowRadius = (maxRadius * 0.32f) * corePulse
+            val glowRadius = (maxRadius * 0.32f) * livePulse
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
                         Color.White,
-                        JarvisCyanBright.copy(alpha = 0.95f),
-                        JarvisCyan.copy(alpha = 0.65f),
+                        armorTheme.accentColor.copy(alpha = 0.95f),
+                        armorTheme.primaryColor.copy(alpha = 0.70f),
                         Color.Transparent
                     ),
                     center = center,
@@ -257,7 +269,7 @@ fun StarkArcReactorHero(
                 fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 1.sp,
-                color = JarvisCyanBright
+                color = armorTheme.accentColor
             )
         }
     }

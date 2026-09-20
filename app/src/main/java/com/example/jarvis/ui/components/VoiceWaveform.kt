@@ -32,12 +32,14 @@ fun VoiceWaveform(
     barCount: Int = 16,
     height: Dp = 48.dp,
     isActive: Boolean = true,
+    rmsDb: Float = 0f,
     accentColor: Color = JarvisCyan
 ) {
     val transition = rememberInfiniteTransition(label = "waveform_anim")
 
     // Generate staggered heights for high-tech audio spectrum look
     val multipliers = listOf(0.3f, 0.6f, 0.9f, 0.5f, 0.8f, 1.0f, 0.7f, 0.4f, 0.85f, 0.65f, 0.95f, 0.5f, 0.75f, 0.35f, 0.6f, 0.4f)
+    val rmsScale = (rmsDb.coerceIn(0f, 15f) / 15f) * 0.5f
 
     Row(
         modifier = modifier.height(height),
@@ -45,11 +47,11 @@ fun VoiceWaveform(
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0 until barCount) {
-            val mult = multipliers[i % multipliers.size]
+            val mult = (multipliers[i % multipliers.size] + rmsScale).coerceAtMost(1f)
             val duration = 400 + (i * 45)
 
             val animatedFraction by transition.animateFloat(
-                initialValue = if (isActive) 0.15f else 0.08f,
+                initialValue = if (isActive) 0.15f + (rmsScale * 0.3f) else 0.08f,
                 targetValue = if (isActive) mult else 0.1f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(durationMillis = duration, easing = FastOutSlowInEasing),

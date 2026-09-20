@@ -16,17 +16,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -45,6 +54,7 @@ import com.example.jarvis.bridge.AndroidBridge
 import com.example.jarvis.diagnostics.DiagnosticItem
 import com.example.jarvis.diagnostics.DiagnosticStatus
 import com.example.jarvis.diagnostics.JarvisDiagnostics
+import com.example.jarvis.diagnostics.SystemTelemetryManager
 import com.example.jarvis.storage.JarvisRepository
 import com.example.jarvis.ui.theme.JarvisAmber
 import com.example.jarvis.ui.theme.JarvisBackground
@@ -58,6 +68,9 @@ import com.example.jarvis.ui.theme.JarvisSurfaceElevated
 import com.example.jarvis.ui.theme.JarvisTextDim
 import com.example.jarvis.ui.theme.JarvisTextPrimary
 import com.example.jarvis.ui.theme.JarvisTextSecondary
+import com.example.jarvis.ui.theme.ThemeManager
+import com.example.jarvis.voice.StarkSoundEngine
+import java.util.Locale
 
 @Composable
 fun DiagnosticsScreen(
@@ -65,13 +78,31 @@ fun DiagnosticsScreen(
     bridge: AndroidBridge
 ) {
     val context = LocalContext.current
+    val activeTheme by ThemeManager.currentTheme.collectAsState()
+    val telemetryManager = remember { SystemTelemetryManager(context) }
+
+    val battery by telemetryManager.batteryState.collectAsState()
+    val memory by telemetryManager.memoryState.collectAsState()
+    val storage by telemetryManager.storageState.collectAsState()
+    val network by telemetryManager.networkState.collectAsState()
+    val sensor by telemetryManager.sensorState.collectAsState()
+
+    DisposableEffect(Unit) {
+        telemetryManager.startListening()
+        onDispose {
+            telemetryManager.stopListening()
+        }
+    }
+
     var diagnosticItems by remember { mutableStateOf<List<DiagnosticItem>>(emptyList()) }
     var isRunning by remember { mutableStateOf(false) }
 
     fun refresh() {
         isRunning = true
+        telemetryManager.refreshSnapshot()
         diagnosticItems = JarvisDiagnostics.runAllDiagnostics(context, repository, bridge)
         isRunning = false
+        StarkSoundEngine.playCyberBeep()
     }
 
     LaunchedEffect(Unit) {
@@ -97,14 +128,14 @@ fun DiagnosticsScreen(
             ) {
                 Column {
                     Text(
-                        text = "JARVIS SYSTEM DIAGNOSTICS",
+                        text = "JARVIS SYSTEM TELEMETRY & DIAGNOSTICS",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = JarvisCyan
+                        color = activeTheme.accentColor
                     )
                     Text(
-                        text = "Live telemetry & hardware status audit",
+                        text = "Real-time hardware & sensor matrix audit",
                         fontSize = 11.sp,
                         color = JarvisTextSecondary
                     )
@@ -113,12 +144,142 @@ fun DiagnosticsScreen(
                 Button(
                     onClick = { refresh() },
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = JarvisCyan, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = activeTheme.primaryColor, contentColor = Color.Black),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                     modifier = Modifier.testTag("run_diagnostics_button")
                 ) {
                     Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Text("AUDIT", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+
+        // Live Hardware Matrix (2x2 Grid)
+        item {
+            Text(
+                text = "REAL-TIME HARDWARE TELEMETRY",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = activeTheme.accentColor,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        // Battery & RAM Row
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Battery Card
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0D1526))
+                        .border(1.dp, activeTheme.borderColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.BatteryChargingFull, contentDescription = null, tint = JarvisGreen, modifier = Modifier.size(18.dp))
+                            Text("BATTERY", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = JarvisGreen)
+                        }
+                        Text("${battery.levelPercent}%", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = JarvisTextPrimary, fontFamily = FontFamily.Monospace)
+                        Text("${battery.temperatureCelsius}°C • ${battery.voltageMv}mV", fontSize = 10.sp, color = JarvisTextSecondary)
+                        Text(battery.powerSource, fontSize = 9.sp, color = JarvisTextDim, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                // RAM Card
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0D1526))
+                        .border(1.dp, activeTheme.borderColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Memory, contentDescription = null, tint = JarvisCyanBright, modifier = Modifier.size(18.dp))
+                            Text("SYSTEM RAM", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = JarvisCyanBright)
+                        }
+                        Text("${memory.ramUsagePercent}% Used", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = JarvisTextPrimary, fontFamily = FontFamily.Monospace)
+                        LinearProgressIndicator(
+                            progress = { memory.ramUsagePercent / 100f },
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                            color = if (memory.ramUsagePercent > 85) JarvisRed else JarvisCyanBright,
+                            trackColor = Color(0xFF1E293B)
+                        )
+                        Text(String.format(Locale.US, "%.1f / %.1f GB", memory.usedRamGb, memory.totalRamGb), fontSize = 10.sp, color = JarvisTextSecondary)
+                    }
+                }
+            }
+        }
+
+        // Storage & Sensors Row
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Storage Card
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0D1526))
+                        .border(1.dp, activeTheme.borderColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.SdStorage, contentDescription = null, tint = JarvisAmber, modifier = Modifier.size(18.dp))
+                            Text("STORAGE", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = JarvisAmber)
+                        }
+                        Text("${storage.usagePercent}% Used", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = JarvisTextPrimary, fontFamily = FontFamily.Monospace)
+                        LinearProgressIndicator(
+                            progress = { storage.usagePercent / 100f },
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                            color = JarvisAmber,
+                            trackColor = Color(0xFF1E293B)
+                        )
+                        Text(String.format(Locale.US, "%.0f / %.0f GB", storage.usedStorageGb, storage.totalStorageGb), fontSize = 10.sp, color = JarvisTextSecondary)
+                    }
+                }
+
+                // Sensors & Network Card
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0D1526))
+                        .border(1.dp, activeTheme.borderColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.CompassCalibration, contentDescription = null, tint = activeTheme.accentColor, modifier = Modifier.size(18.dp))
+                            Text("SENSORS", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = activeTheme.accentColor)
+                        }
+                        Text("${sensor.compassAzimuthDegrees.toInt()}° Azimuth", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = JarvisTextPrimary, fontFamily = FontFamily.Monospace)
+                        Text("Light: ${sensor.lightLux.toInt()} Lux", fontSize = 10.sp, color = JarvisTextSecondary)
+                        Text("IP: ${network.ipAddress}", fontSize = 9.sp, color = JarvisTextDim, fontFamily = FontFamily.Monospace)
+                    }
                 }
             }
         }
@@ -180,7 +341,7 @@ fun DiagnosticsScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = JarvisCyan,
+                    color = activeTheme.accentColor,
                     modifier = Modifier.padding(top = 6.dp)
                 )
             }

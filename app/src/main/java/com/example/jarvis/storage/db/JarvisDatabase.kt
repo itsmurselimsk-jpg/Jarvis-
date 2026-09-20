@@ -182,9 +182,79 @@ interface ActivityLogDao {
     suspend fun clearAllLogs()
 }
 
+@Entity(tableName = "expenses")
+data class ExpenseEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val amount: Double,
+    val category: String = "General",
+    val timestamp: Long = System.currentTimeMillis(),
+    val notes: String = ""
+)
+
+@Dao
+interface ExpenseDao {
+    @Query("SELECT * FROM expenses ORDER BY timestamp DESC")
+    fun getAllExpenses(): Flow<List<ExpenseEntity>>
+
+    @Query("SELECT * FROM expenses WHERE category = :category ORDER BY timestamp DESC")
+    fun getExpensesByCategory(category: String): Flow<List<ExpenseEntity>>
+
+    @Query("SELECT SUM(amount) FROM expenses")
+    fun getTotalSpentFlow(): Flow<Double?>
+
+    @Query("SELECT SUM(amount) FROM expenses")
+    suspend fun getTotalSpentSync(): Double?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpense(expense: ExpenseEntity)
+
+    @Delete
+    suspend fun deleteExpense(expense: ExpenseEntity)
+
+    @Query("DELETE FROM expenses")
+    suspend fun clearAllExpenses()
+}
+
+@Entity(tableName = "habits")
+data class HabitEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val streakDays: Int = 1,
+    val lastCompletedDateMillis: Long = System.currentTimeMillis(),
+    val targetDaysPerWeek: Int = 7
+)
+
+@Dao
+interface HabitDao {
+    @Query("SELECT * FROM habits ORDER BY streakDays DESC")
+    fun getAllHabits(): Flow<List<HabitEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHabit(habit: HabitEntity)
+
+    @Update
+    suspend fun updateHabit(habit: HabitEntity)
+
+    @Delete
+    suspend fun deleteHabit(habit: HabitEntity)
+
+    @Query("DELETE FROM habits WHERE id = :id")
+    suspend fun deleteHabitById(id: String)
+}
+
 @Database(
-    entities = [MemoryEntity::class, TaskEntity::class, NotificationLogEntity::class, ActivityLogEntity::class],
-    version = 3,
+    entities = [
+        MemoryEntity::class,
+        TaskEntity::class,
+        NotificationLogEntity::class,
+        ActivityLogEntity::class,
+        ExpenseEntity::class,
+        HabitEntity::class
+    ],
+    version = 4,
     exportSchema = false
 )
 abstract class JarvisDatabase : RoomDatabase() {
@@ -192,6 +262,8 @@ abstract class JarvisDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun notificationDao(): NotificationDao
     abstract fun activityLogDao(): ActivityLogDao
+    abstract fun expenseDao(): ExpenseDao
+    abstract fun habitDao(): HabitDao
 
     companion object {
         @Volatile

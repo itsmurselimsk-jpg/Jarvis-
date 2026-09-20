@@ -48,7 +48,14 @@ enum class SubScreen {
     DIAGNOSTICS,
     NOTIFICATIONS,
     SEARCH,
-    PLUGINS
+    PLUGINS,
+    ARMOR_THEMES,
+    EXPENSES,
+    HABITS,
+    CODE_STUDIO,
+    VOICE_NOTES,
+    TIMER_STOPWATCH,
+    BACKUP_EXPORT
 }
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
@@ -110,11 +117,15 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val visionScans = repository.visionScans
     val notifications = repository.notifications
     val settings = repository.settings
+    val expenses = repository.expensesFlow
+    val habits = repository.habitsFlow
     val telemetry = bridge.telemetry
     val isListening = bridge.isListening
     val liveTranscript = bridge.liveTranscript
     val isSpeaking = bridge.isSpeaking
     val speechSupported = bridge.speechSupported
+    val deviceTilt = bridge.deviceTilt
+    val voiceRmsDb = bridge.voiceRmsDb
 
     // Vision and OCR state
     private val _activeVisionResult = MutableStateFlow<VisionResult?>(null)
